@@ -25,7 +25,7 @@ func newContext(storage storage.Iface, serverType string) (*Context, error) {
 	if err != nil {
 		return &Context{}, fmt.Errorf("userstore initialization error: %s", err)
 	}
-	return newContextWithParams(storage, serverType, userStore, scim.New(storage, userStore, "", nil, nil), 100, "", map[string]AppClient{})
+	return newContextWithParams(storage, serverType, userStore, scim.New(storage, userStore, ""), 100, "", map[string]AppClient{})
 }
 
 func newContextWithParams(storage storage.Iface, serverType string, userStore *users.UserStore, scimInstance scim.Iface, licenseUserCount int, cloudType string, apps map[string]AppClient) (*Context, error) {
