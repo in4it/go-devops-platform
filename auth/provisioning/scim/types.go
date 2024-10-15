@@ -7,12 +7,15 @@ import (
 	"github.com/in4it/go-devops-platform/users"
 )
 
+type DisableFunc func(storage.Iface, users.User) error
+type ReactivateFunc func(storage.Iface, users.User) error
+
 type scim struct {
 	Token          string           `json:"token"`
 	UserStore      *users.UserStore `json:"userStore"`
 	storage        storage.Iface
-	DisableFunc    func(storage.Iface, users.User) error
-	ReactivateFunc func(storage.Iface, users.User) error
+	DisableFunc    DisableFunc
+	ReactivateFunc ReactivateFunc
 }
 
 type Iface interface {

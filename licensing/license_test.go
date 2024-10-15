@@ -1,4 +1,4 @@
-package license
+package licensing
 
 import (
 	"crypto/sha256"

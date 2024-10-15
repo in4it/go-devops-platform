@@ -26,7 +26,7 @@ func TestUsersGetCount100EmptyResult(t *testing.T) {
 		t.Fatalf("cannot empty user store")
 	}
 
-	s := New(storage, userStore, "token")
+	s := New(storage, userStore, "token", nil, nil)
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?count=100&startIndex=1&", nil)
 	w := httptest.NewRecorder()
 	s.GetUsersHandler(w, req)
@@ -64,7 +64,7 @@ func TestUsersGetCount10(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create users: %s", err)
 	}
-	s := New(storage, userStore, "token")
+	s := New(storage, userStore, "token", nil, nil)
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?count=10&startIndex=1&", nil)
 	w := httptest.NewRecorder()
 	s.GetUsersHandler(w, req)
@@ -104,7 +104,7 @@ func TestUsersGetCount10Start5(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot create users: %s", err)
 	}
-	s := New(storage, userStore, "token")
+	s := New(storage, userStore, "token", nil, nil)
 	req := httptest.NewRequest("GET", fmt.Sprintf("http://example.com/api/scim/v2/Users?count=%d&startIndex=%d&", count, start), nil)
 	w := httptest.NewRecorder()
 	s.GetUsersHandler(w, req)
@@ -139,7 +139,7 @@ func TestUsersGetNonExistentUser(t *testing.T) {
 		t.Fatalf("cannot create new user stoer")
 	}
 
-	s := New(&memorystorage.MockMemoryStorage{}, userStore, "token")
+	s := New(&memorystorage.MockMemoryStorage{}, userStore, "token", nil, nil)
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?filter=userName+eq+%22ward%40in4it.io%22&", nil)
 	w := httptest.NewRecorder()
 	s.GetUsersHandler(w, req)
@@ -166,7 +166,7 @@ func TestAddUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot empty user store")
 	}
-	s := New(storage, userStore, "token")
+	s := New(storage, userStore, "token", nil, nil)
 	payload := PostUserRequest{
 		UserName: "john@domain.inv",
 		Name: Name{
