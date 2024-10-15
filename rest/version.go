@@ -1,7 +1,6 @@
 package rest
 
 import (
-	_ "embed"
 	"fmt"
 	"io"
 	"net/http"

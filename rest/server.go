@@ -2,7 +2,6 @@ package rest
 
 import (
 	"crypto/tls"
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,13 +14,11 @@ import (
 )
 
 var (
-	//go:embed static
-	assets             embed.FS
 	enableTLSWaiter    chan (bool) = make(chan bool)
 	TLSWaiterCompleted bool
 )
 
-func StartServer(httpPort, httpsPort int, serverType string, storage storage.Iface, c *Context) {
+func StartServer(httpPort, httpsPort int, serverType string, storage storage.Iface, c *Context, assets fs.FS) {
 	go handleSignals(c)
 
 	assetsFS, err := fs.Sub(assets, "static")
