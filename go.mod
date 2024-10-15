@@ -3,6 +3,12 @@ module github.com/in4it/go-devops-platform
 go 1.23.0
 
 require (
+	github.com/google/uuid v1.6.0
+	github.com/russellhaering/gosaml2 v0.9.1
+	golang.org/x/crypto v0.28.0
+)
+
+require (
 	github.com/aws/aws-sdk-go-v2 v1.32.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.6 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.27.43 // indirect
@@ -21,4 +27,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.28.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.32.2 // indirect
 	github.com/aws/smithy-go v1.22.0 // indirect
+	github.com/beevik/etree v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.4
+	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/jonboulle/clockwork v0.3.0 // indirect
+	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
+	github.com/russellhaering/goxmldsig v1.3.0 // indirect
 )
