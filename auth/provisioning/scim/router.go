@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-func (s *scim) GetRouter() *http.ServeMux {
+func (s *Scim) GetRouter() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	mux.Handle("/api/scim/", s.authMiddleware(http.HandlerFunc(notFoundHandler)))

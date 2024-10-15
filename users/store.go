@@ -10,6 +10,14 @@ import (
 
 const USERSTORE_FILENAME = "users.json"
 
+func NewUserStoreWithHooks(storage storage.Iface, maxUsers int, hooks UserHooks) (*UserStore, error) {
+	userStore, err := NewUserStore(storage, maxUsers)
+	if err != nil {
+		return userStore, err
+	}
+	userStore.UserHooks = hooks
+	return userStore, nil
+}
 func NewUserStore(storage storage.Iface, maxUsers int) (*UserStore, error) {
 	userStore := &UserStore{
 		autoSave: true,

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func (s *scim) authMiddleware(next http.Handler) http.Handler {
+func (s *Scim) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
 			writeWithStatus(w, []byte(`{"error": "token not found"}`), http.StatusUnauthorized)

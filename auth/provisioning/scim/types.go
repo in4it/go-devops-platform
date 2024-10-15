@@ -10,7 +10,7 @@ import (
 type DisableFunc func(storage.Iface, users.User) error
 type ReactivateFunc func(storage.Iface, users.User) error
 
-type scim struct {
+type Scim struct {
 	Token          string           `json:"token"`
 	UserStore      *users.UserStore `json:"userStore"`
 	storage        storage.Iface

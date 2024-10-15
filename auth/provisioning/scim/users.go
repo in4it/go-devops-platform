@@ -11,7 +11,7 @@ import (
 )
 
 // handler for multiple users
-func (s *scim) usersHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) usersHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		s.GetUsersHandler(w, r)
@@ -25,7 +25,7 @@ func (s *scim) usersHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 // handler for a single user
-func (s *scim) userHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) userHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		s.GetUsersHandler(w, r)
@@ -41,7 +41,7 @@ func (s *scim) userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *scim) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	attributes := r.URL.Query().Get("attributes")
 	filter := r.URL.Query().Get("filter")
 	count, err := strconv.Atoi(r.URL.Query().Get("count"))
@@ -70,7 +70,7 @@ func (s *scim) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	write(w, response)
 }
 
-func (s *scim) getUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) getUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := s.UserStore.GetUserByID(r.PathValue("id"))
 	if err != nil {
 		returnError(w, fmt.Errorf("get user by id error: %s", err), http.StatusBadRequest)
@@ -85,7 +85,7 @@ func (s *scim) getUserHandler(w http.ResponseWriter, r *http.Request) {
 
 	write(w, response)
 }
-func (s *scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := s.UserStore.GetUserByID(r.PathValue("id"))
 	if err != nil {
 		returnError(w, fmt.Errorf("get user by id error: %s", err), http.StatusBadRequest)
@@ -137,7 +137,7 @@ func (s *scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 	write(w, response)
 }
 
-func (s *scim) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := s.UserStore.GetUserByID(r.PathValue("id"))
 	if err != nil {
 		returnError(w, fmt.Errorf("get user by id error: %s", err), http.StatusBadRequest)
@@ -159,7 +159,7 @@ func (s *scim) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	write(w, []byte(""))
 }
 
-func (s *scim) PostUsersHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Scim) PostUsersHandler(w http.ResponseWriter, r *http.Request) {
 	var postUserRequest PostUserRequest
 	err := json.NewDecoder(r.Body).Decode(&postUserRequest)
 	if err != nil {

@@ -1,5 +1,5 @@
 package scim
 
-func (s *scim) UpdateToken(token string) {
+func (s *Scim) UpdateToken(token string) {
 	s.Token = token
 }

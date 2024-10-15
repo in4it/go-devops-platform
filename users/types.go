@@ -7,10 +7,11 @@ import (
 )
 
 type UserStore struct {
-	Users    []User `json:"users"`
-	autoSave bool
-	maxUsers int
-	storage  storage.Iface
+	Users     []User `json:"users"`
+	autoSave  bool
+	maxUsers  int
+	storage   storage.Iface
+	UserHooks UserHooks
 }
 
 type User struct {
@@ -32,4 +33,14 @@ type Factor struct {
 	Name   string `json:"name"`
 	Type   string `json:"type"`
 	Secret string `json:"secret"`
+}
+
+type DisableFunc func(storage.Iface, User) error
+type ReactivateFunc func(storage.Iface, User) error
+type DeleteFunc func(storage.Iface, User) error
+
+type UserHooks struct {
+	DisableFunc    DisableFunc
+	ReactivateFunc ReactivateFunc
+	DeleteFunc     DeleteFunc
 }
