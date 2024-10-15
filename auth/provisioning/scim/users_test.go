@@ -29,7 +29,7 @@ func TestUsersGetCount100EmptyResult(t *testing.T) {
 	s := New(storage, userStore, "token")
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?count=100&startIndex=1&", nil)
 	w := httptest.NewRecorder()
-	s.getUsersHandler(w, req)
+	s.GetUsersHandler(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -67,7 +67,7 @@ func TestUsersGetCount10(t *testing.T) {
 	s := New(storage, userStore, "token")
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?count=10&startIndex=1&", nil)
 	w := httptest.NewRecorder()
-	s.getUsersHandler(w, req)
+	s.GetUsersHandler(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -107,7 +107,7 @@ func TestUsersGetCount10Start5(t *testing.T) {
 	s := New(storage, userStore, "token")
 	req := httptest.NewRequest("GET", fmt.Sprintf("http://example.com/api/scim/v2/Users?count=%d&startIndex=%d&", count, start), nil)
 	w := httptest.NewRecorder()
-	s.getUsersHandler(w, req)
+	s.GetUsersHandler(w, req)
 
 	resp := w.Result()
 
@@ -142,7 +142,7 @@ func TestUsersGetNonExistentUser(t *testing.T) {
 	s := New(&memorystorage.MockMemoryStorage{}, userStore, "token")
 	req := httptest.NewRequest("GET", "http://example.com/api/scim/v2/Users?filter=userName+eq+%22ward%40in4it.io%22&", nil)
 	w := httptest.NewRecorder()
-	s.getUsersHandler(w, req)
+	s.GetUsersHandler(w, req)
 
 	resp := w.Result()
 	body, _ := io.ReadAll(resp.Body)
@@ -180,7 +180,7 @@ func TestAddUser(t *testing.T) {
 	}
 	req := httptest.NewRequest("POST", "http://example.com/api/scim/v2/Users?", bytes.NewBuffer(payloadBytes))
 	w := httptest.NewRecorder()
-	s.postUsersHandler(w, req)
+	s.PostUsersHandler(w, req)
 
 	resp := w.Result()
 
