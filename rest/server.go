@@ -18,7 +18,7 @@ var (
 	TLSWaiterCompleted bool
 )
 
-func StartServer(httpPort, httpsPort int, serverType string, storage storage.Iface, c *Context, assets fs.FS) {
+func StartServer(httpPort, httpsPort int, storage storage.Iface, c *Context, assets fs.FS) {
 	go handleSignals(c)
 
 	assetsFS, err := fs.Sub(assets, "static")
