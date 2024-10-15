@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/in4it/wireguard-server/pkg/logging"
+	"github.com/in4it/go-devops-platform/logging"
 )
 
 func RetrieveOAUth2DataUsingState(allOAuth2data map[string]OAuthData, state string) (OAuthData, error) {

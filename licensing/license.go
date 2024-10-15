@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/logging"
-	randomutils "github.com/in4it/wireguard-server/pkg/utils/random"
+	randomutils "github.com/in4it/go-devops-platform/utils/random"
 )
 
 var MetadataIP = "169.254.169.254"

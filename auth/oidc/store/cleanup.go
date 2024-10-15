@@ -4,7 +4,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
+	"github.com/in4it/go-devops-platform/auth/oidc"
 )
 
 func (store *Store) CleanupOAuth2DataForAllEntries() int {

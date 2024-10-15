@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/in4it/wireguard-server/pkg/users"
+	"github.com/in4it/go-devops-platform/users"
 )
 
 func listUserResponse(users []users.User, attributes string, count, start int) ([]byte, error) {

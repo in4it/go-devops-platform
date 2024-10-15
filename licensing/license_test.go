@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/in4it/wireguard-server/pkg/logging"
-	memorystorage "github.com/in4it/wireguard-server/pkg/storage/memory"
+	"github.com/in4it/go-devops-platform/logging"
+	memorystorage "github.com/in4it/go-devops-platform/storage/memory"
 )
 
 func TestGetMaxUsersAzure(t *testing.T) {

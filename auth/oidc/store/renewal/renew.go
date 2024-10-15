@@ -7,15 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
-	oidcstore "github.com/in4it/wireguard-server/pkg/auth/oidc/store"
-	"github.com/in4it/wireguard-server/pkg/logging"
-	"github.com/in4it/wireguard-server/pkg/users"
-	"github.com/in4it/wireguard-server/pkg/wireguard"
+	"github.com/in4it/go-devops-platform/auth/oidc"
+	oidcstore "github.com/in4it/go-devops-platform/auth/oidc/store"
+	"github.com/in4it/go-devops-platform/logging"
+	"github.com/in4it/go-devops-platform/users"
 )
 
-func (r *Renewal) RenewAllOIDCConnections() {
+func (r *Renewal) RenewAllOIDCConnections() []users.User {
+	disabledUsers := []users.User{}
 	// force renewal of all tokens, even if they're not expired (unless they're empty)
 	for key, oauth2Data := range r.oidcStore.OAuth2Data {
 		if oidcProvider, err := getOIDCProvider(oauth2Data.OIDCProviderID, r.oidcProviders); err == nil {
@@ -24,7 +23,15 @@ func (r *Renewal) RenewAllOIDCConnections() {
 					logging.DebugLog(fmt.Errorf("skipping %s (renewal already failed or access token is empty. RenewalFailed: %v, AccessToken is empty: %v)", oauth2Data.ID, oauth2Data.RenewalFailed, oauth2Data.Token.AccessToken == ""))
 				} else {
 					logging.DebugLog(fmt.Errorf("trying to renew %s", oauth2Data.ID))
-					r.renew(discovery, key, oauth2Data, oidcProvider)
+					userDisabled := r.renew(discovery, key, oauth2Data, oidcProvider)
+					if userDisabled {
+						user, err := r.userStore.GetUserByOIDCIDs([]string{oauth2Data.ID})
+						if err != nil {
+							logging.ErrorLog(fmt.Errorf("no user found with oidc id %s", oauth2Data.ID))
+						} else {
+							disabledUsers = append(disabledUsers, user)
+						}
+					}
 				}
 			} else {
 				logging.DebugLog(fmt.Errorf("could not get discovery url for %s: %s", oauth2Data.ID, err))
@@ -33,8 +40,9 @@ func (r *Renewal) RenewAllOIDCConnections() {
 			logging.DebugLog(fmt.Errorf("could not get oidcprovider for %s: %s", oauth2Data.ID, err))
 		}
 	}
+	return disabledUsers
 }
-func (r *Renewal) renew(discovery oidc.Discovery, key string, oauth2Data oidc.OAuthData, oidcProvider oidc.OIDCProvider) {
+func (r *Renewal) renew(discovery oidc.Discovery, key string, oauth2Data oidc.OAuthData, oidcProvider oidc.OIDCProvider) bool {
 	newToken, newTokenTimestamp, err := refreshToken(discovery, oauth2Data.Token.RefreshToken, oidcProvider.ClientID, oidcProvider.ClientSecret)
 	if err != nil {
 		oauth2Data.RenewalRetries++
@@ -52,12 +60,9 @@ func (r *Renewal) renew(discovery oidc.Discovery, key string, oauth2Data oidc.OA
 		}
 		// suspend connections
 		if oauth2Data.RenewalFailed {
-			err = disableUser(r.storage, oauth2Data, r.userStore)
-			if err != nil {
-				logging.ErrorLog(fmt.Errorf("renewal Worker: [error] disableUser: %s", err))
-			}
+			return true
 		}
-		return
+		return false
 	}
 	logging.DebugLog(fmt.Errorf("new token issued at %v: %+v", newToken, newTokenTimestamp))
 	oauth2Data.LastTokenRenewal = newTokenTimestamp
@@ -75,24 +80,7 @@ func (r *Renewal) renew(discovery oidc.Discovery, key string, oauth2Data oidc.OA
 	if err != nil {
 		logging.ErrorLog(fmt.Errorf("renewal Worker: [error] SaveOIDCStore: %s", err))
 	}
-}
-
-func disableUser(storage storage.Iface, oauth2Data oidc.OAuthData, userStore *users.UserStore) error {
-	logging.DebugLog(fmt.Errorf("disable user with oidc id %s", oauth2Data.ID))
-	user, err := userStore.GetUserByOIDCIDs([]string{oauth2Data.ID})
-	if err != nil {
-		return fmt.Errorf("no user found with oidc id %s", oauth2Data.ID)
-	}
-	err = wireguard.DisableAllClientConfigs(storage, user.ID)
-	if err != nil {
-		return fmt.Errorf("DisableAllClientConfigs error for userID %s: %s", user.ID, err)
-	}
-	user.ConnectionsDisabledOnAuthFailure = true
-	err = userStore.UpdateUser(user)
-	if err != nil {
-		return fmt.Errorf("could not update connectionsDisabledOnAuthFailure user with userID %s: %s", user.ID, err)
-	}
-	return nil
+	return false
 }
 
 func getOIDCProvider(id string, oidcProviders []oidc.OIDCProvider) (oidc.OIDCProvider, error) {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
+	"github.com/in4it/go-devops-platform/auth/oidc"
 )
 
 func (store *Store) GetDiscoveryURI(discoveryURI string) (oidc.Discovery, error) {

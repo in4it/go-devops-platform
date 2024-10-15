@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
-	memorystorage "github.com/in4it/wireguard-server/pkg/storage/memory"
+	"github.com/in4it/go-devops-platform/auth/oidc"
+	memorystorage "github.com/in4it/go-devops-platform/storage/memory"
 )
 
 func TestGetJwks(t *testing.T) {

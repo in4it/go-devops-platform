@@ -3,8 +3,8 @@ package oidcstore
 import (
 	"sync"
 
+	"github.com/in4it/go-devops-platform/auth/oidc"
 	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
 )
 
 type Store struct {

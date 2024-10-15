@@ -3,11 +3,11 @@ package oidcrenewal
 import (
 	"time"
 
+	oidc "github.com/in4it/go-devops-platform/auth/oidc"
+	oidcstore "github.com/in4it/go-devops-platform/auth/oidc/store"
+	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/storage"
-	oidc "github.com/in4it/wireguard-server/pkg/auth/oidc"
-	oidcstore "github.com/in4it/wireguard-server/pkg/auth/oidc/store"
-	"github.com/in4it/wireguard-server/pkg/logging"
-	"github.com/in4it/wireguard-server/pkg/users"
+	"github.com/in4it/go-devops-platform/users"
 )
 
 type Renewal struct {

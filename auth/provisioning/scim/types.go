@@ -4,13 +4,15 @@ import (
 	"net/http"
 
 	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/users"
+	"github.com/in4it/go-devops-platform/users"
 )
 
 type scim struct {
-	Token     string           `json:"token"`
-	UserStore *users.UserStore `json:"userStore"`
-	storage   storage.Iface
+	Token          string           `json:"token"`
+	UserStore      *users.UserStore `json:"userStore"`
+	storage        storage.Iface
+	DisableFunc    func(storage.Iface, users.User) error
+	ReactivateFunc func(storage.Iface, users.User) error
 }
 
 type Iface interface {

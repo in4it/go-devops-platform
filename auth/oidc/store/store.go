@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/in4it/go-devops-platform/auth/oidc"
 	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
 )
 
 const DEFAULT_PATH = "oidcstore.json"

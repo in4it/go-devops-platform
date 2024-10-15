@@ -7,8 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/in4it/wireguard-server/pkg/users"
-	"github.com/in4it/wireguard-server/pkg/wireguard"
+	"github.com/in4it/go-devops-platform/users"
 )
 
 // handler for multiple users
@@ -101,14 +100,14 @@ func (s *scim) putUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !putUserRequest.Active && !user.Suspended { // user is suspended
-		err = wireguard.DisableAllClientConfigs(s.storage, user.ID)
+		err = s.DisableFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 			return
 		}
 	}
 	if putUserRequest.Active && user.Suspended { // user is unsuspended
-		err := wireguard.ReactivateAllClientConfigs(s.storage, user.ID)
+		err := s.ReactivateFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not reactivate all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 			return
@@ -145,7 +144,7 @@ func (s *scim) deleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = wireguard.DeleteAllClientConfigs(s.storage, user.ID)
+	err = s.DisableFunc(s.storage, user)
 	if err != nil {
 		returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 		return

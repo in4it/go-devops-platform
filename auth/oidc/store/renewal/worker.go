@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/in4it/wireguard-server/pkg/logging"
+	"github.com/in4it/go-devops-platform/logging"
 )
 
 const WAKEUP_TIME_SECONDS = 300         // every 5 minutes we check

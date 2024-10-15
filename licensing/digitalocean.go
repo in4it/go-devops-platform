@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/storage"
-	"github.com/in4it/wireguard-server/pkg/logging"
 )
 
 func isOnDigitalOcean(client http.Client) bool {

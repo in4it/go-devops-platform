@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/in4it/wireguard-server/pkg/auth/oidc"
+	"github.com/in4it/go-devops-platform/auth/oidc"
 )
 
 func refreshToken(discovery oidc.Discovery, refreshToken, clientID, clientSecret string) (oidc.Token, time.Time, error) {
