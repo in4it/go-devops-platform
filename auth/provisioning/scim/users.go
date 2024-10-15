@@ -100,14 +100,14 @@ func (s *Scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !putUserRequest.Active && !user.Suspended { // user is suspended
-		err = s.DisableFunc(s.storage, user)
+		err = s.UserStore.UserHooks.DisableFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 			return
 		}
 	}
 	if putUserRequest.Active && user.Suspended { // user is unsuspended
-		err := s.ReactivateFunc(s.storage, user)
+		err := s.UserStore.UserHooks.ReactivateFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not reactivate all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 			return
@@ -144,7 +144,7 @@ func (s *Scim) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.DisableFunc(s.storage, user)
+	err = s.UserStore.UserHooks.DeleteFunc(s.storage, user)
 	if err != nil {
 		returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 		return
