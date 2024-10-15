@@ -14,7 +14,6 @@ import (
 )
 
 type CustomValue string
-type CustomIntValue string
 
 // auth middleware
 
@@ -142,7 +141,7 @@ func (c *Context) injectUserMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), CustomValue("user"), user)
-		ctx = context.WithValue(ctx, CustomIntValue("licenseUserCount"), c.LicenseUserCount)
+		ctx = context.WithValue(ctx, CustomValue("licenseUserCount"), c.LicenseUserCount)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
