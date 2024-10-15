@@ -2,34 +2,13 @@ package rest
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
-//go:generate cp -r ../../latest ./resources/version
-//go:embed resources/version
-
-var version string
-
 const UPGRADESERVER_URI = "127.0.0.1:8081"
-
-func (c *Context) version(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		out, err := json.Marshal(map[string]string{"version": strings.TrimSpace(version)})
-		if err != nil {
-			c.returnError(w, fmt.Errorf("version marshal error: %s", err), http.StatusBadRequest)
-			return
-		}
-		c.write(w, out)
-	default:
-		c.returnError(w, fmt.Errorf("method not supported"), http.StatusBadRequest)
-	}
-}
 
 func (c *Context) upgrade(w http.ResponseWriter, r *http.Request) {
 	client := http.Client{

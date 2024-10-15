@@ -22,7 +22,6 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/api/authmethods", http.HandlerFunc(c.authMethods))
 	mux.Handle("/api/authmethods/{method}/{id}", http.HandlerFunc(c.authMethodsByID))
 	mux.Handle("/api/authmethods/{id}", http.HandlerFunc(c.authMethodsByID))
-	mux.Handle("/api/version", http.HandlerFunc(c.version))
 	mux.Handle("/api/upgrade", http.HandlerFunc(c.upgrade))
 	mux.Handle("/", returnIndexOrNotFound(indexHtml))
 
