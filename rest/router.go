@@ -25,9 +25,9 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/api/upgrade", http.HandlerFunc(c.upgrade))
 	mux.Handle("/", returnIndexOrNotFound(indexHtml))
 
-	// endpoints with no authentication (observability)
-	if c.ServerType == SERVER_TYPE_OBSERVABILITY {
-		mux.Handle("/api/observability/", c.Apps.Clients["observability"].GetRouter())
+	// endpoints for apps
+	for appName, app := range c.Apps.Clients {
+		mux.Handle("/api/"+appName+"/", app.GetRouter())
 	}
 
 	// scim
@@ -38,11 +38,6 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/api/profile/password", c.authMiddleware(c.injectUserMiddleware(http.HandlerFunc(c.profilePasswordHandler))))
 	mux.Handle("/api/profile/factors", c.authMiddleware(c.injectUserMiddleware(http.HandlerFunc(c.profileFactorsHandler))))
 	mux.Handle("/api/profile/factors/{name}", c.authMiddleware(c.injectUserMiddleware(http.HandlerFunc(c.profileFactorsHandler))))
-
-	// endpoint with authentication (VPN)
-	if c.ServerType == SERVER_TYPE_VPN {
-		mux.Handle("/api/vpn/", c.authMiddleware(c.injectUserMiddleware(c.Apps.Clients["vpn"].GetRouter())))
-	}
 
 	// endpoints with authentication, with admin role
 	mux.Handle("/api/license", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.licenseHandler)))))
