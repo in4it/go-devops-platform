@@ -119,11 +119,6 @@ type LicenseResponse struct {
 	Key              string `json:"key,omitempty"`
 }
 
-type ConnectionLicenseResponse struct {
-	LicenseUserCount int `json:"licenseUserCount"`
-	ConnectionCount  int `json:"connectionCount"`
-}
-
 type JwtHeader struct {
 	Alg string `json:"alg"`
 	Typ string `json:"typ"`
