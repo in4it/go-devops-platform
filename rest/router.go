@@ -28,7 +28,7 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 
 	// endpoints for apps
 	for appName, app := range c.Apps.Clients {
-		mux.Handle("/api/"+appName+"/", c.injectUserMiddleware(app.GetRouter()))
+		mux.Handle("/api/"+appName+"/", c.authMiddleware(c.injectUserMiddleware(app.GetRouter())))
 	}
 
 	// scim
