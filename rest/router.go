@@ -12,6 +12,7 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/assets/{filename}", http.FileServer(http.FS(assets)))
 	mux.Handle("/index.html", returnIndexOrNotFound(indexHtml))
 	mux.Handle("/favicon.ico", http.FileServer(http.FS(assets)))
+	mux.Handle("/robots.txt", returnRobotsTxt())
 
 	// saml authentication
 	mux.Handle("/saml/", c.SAML.Client.GetRouter())

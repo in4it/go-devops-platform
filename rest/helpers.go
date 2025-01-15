@@ -77,3 +77,9 @@ func returnIndexOrNotFound(contents []byte) http.Handler {
 		}
 	})
 }
+func returnRobotsTxt() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("User-agent: *\nDisallow: /"))
+	})
+}
