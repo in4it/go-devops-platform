@@ -134,6 +134,10 @@ func (c *Context) corsMiddleware(next http.Handler) http.Handler {
 }
 func (c *Context) injectUserMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !userHasClaims(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		user, err := c.GetUserFromRequest(r)
 		if err != nil {
 			c.returnError(w, fmt.Errorf("token error: %s", err), http.StatusUnauthorized)
@@ -152,8 +156,8 @@ func (c *Context) isAdminMiddleware(next http.Handler) http.Handler {
 
 func IsAdminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := r.Context().Value(CustomValue("user")).(users.User)
-		if user.Role != "admin" {
+		user := r.Context().Value(CustomValue("user"))
+		if user == nil || user.(users.User).Role != "admin" {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(`{ "error": "endpoint forbidden" }`))
 			return

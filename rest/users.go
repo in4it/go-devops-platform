@@ -11,6 +11,10 @@ import (
 	"github.com/in4it/go-devops-platform/users"
 )
 
+func userHasClaims(r *http.Request) bool {
+	return r.Context().Value(CustomValue("claims")) != nil
+}
+
 func (c *Context) GetUserFromRequest(r *http.Request) (users.User, error) {
 	claims := r.Context().Value(CustomValue("claims")).(jwt.MapClaims)
 	sub, ok := claims["sub"]
