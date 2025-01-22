@@ -11,7 +11,7 @@ type UserStore struct {
 	autoSave  bool
 	maxUsers  int
 	storage   storage.Iface
-	UserHooks UserHooks
+	UserHooks UserHooks `json:"-"`
 }
 
 type User struct {
@@ -68,7 +68,7 @@ type ReactivateFunc func(storage.Iface, User) error
 type DeleteFunc func(storage.Iface, User) error
 
 type UserHooks struct {
-	DisableFunc    DisableFunc
-	ReactivateFunc ReactivateFunc
-	DeleteFunc     DeleteFunc
+	DisableFunc    DisableFunc    `json:"-"`
+	ReactivateFunc ReactivateFunc `json:"-"`
+	DeleteFunc     DeleteFunc     `json:"-"`
 }
