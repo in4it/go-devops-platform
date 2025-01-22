@@ -226,7 +226,7 @@ func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, 
 			existingUser.ConnectionsDisabledOnAuthFailure = false
 		}
 
-		existingUser.LastLogin = time.Now()
+		existingUser.LastLogin = users.TimeOrEmpty(time.Now())
 
 		err = userStore.UpdateUser(existingUser)
 		if err != nil {
@@ -245,7 +245,7 @@ func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, 
 			newUser.SAMLID = externalAuthID
 		}
 
-		newUser.LastLogin = time.Now()
+		newUser.LastLogin = users.TimeOrEmpty(time.Now())
 
 		newUserAdded, err := userStore.AddUser(newUser)
 		if err != nil {
