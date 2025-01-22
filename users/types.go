@@ -15,18 +15,46 @@ type UserStore struct {
 }
 
 type User struct {
-	ID                               string    `json:"id"`
-	Login                            string    `json:"login"`
-	Role                             string    `json:"role"`
-	OIDCID                           string    `json:"oidcID,omitempty"`
-	SAMLID                           string    `json:"samlID,omitempty"`
-	Provisioned                      bool      `json:"provisioned,omitempty"`
-	Password                         string    `json:"password,omitempty"`
-	Suspended                        bool      `json:"suspended"`
-	ConnectionsDisabledOnAuthFailure bool      `json:"connectionsDisabledOnAuthFailure"`
-	Factors                          []Factor  `json:"factors"`
-	ExternalID                       string    `json:"externalID,omitempty"`
-	LastLogin                        time.Time `json:"lastLogin"`
+	ID                               string      `json:"id"`
+	Login                            string      `json:"login"`
+	Role                             string      `json:"role"`
+	OIDCID                           string      `json:"oidcID,omitempty"`
+	SAMLID                           string      `json:"samlID,omitempty"`
+	Provisioned                      bool        `json:"provisioned,omitempty"`
+	Password                         string      `json:"password,omitempty"`
+	Suspended                        bool        `json:"suspended"`
+	ConnectionsDisabledOnAuthFailure bool        `json:"connectionsDisabledOnAuthFailure"`
+	Factors                          []Factor    `json:"factors"`
+	ExternalID                       string      `json:"externalID,omitempty"`
+	LastLogin                        TimeOrEmpty `json:"lastLogin"`
+}
+
+type TimeOrEmpty time.Time
+
+func (t *TimeOrEmpty) UnmarshalJSON(data []byte) error {
+	if string(data) == `""` {
+		*t = TimeOrEmpty(time.Time{})
+		return nil
+	}
+	tt := time.Time(*t)
+	err := tt.UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	*t = TimeOrEmpty(tt)
+	return nil
+}
+func (t TimeOrEmpty) MarshalJSON() ([]byte, error) {
+	return time.Time(t).MarshalJSON()
+}
+func (t TimeOrEmpty) String() string {
+	return time.Time(t).String()
+}
+func (t TimeOrEmpty) IsZero() bool {
+	return time.Time(t).IsZero()
+}
+func (t TimeOrEmpty) UTC() time.Time {
+	return time.Time(t).UTC()
 }
 
 type Factor struct {

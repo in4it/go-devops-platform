@@ -39,6 +39,7 @@ func TestCreateUser(t *testing.T) {
 	defer resp.Body.Close()
 
 	var user users.User
+
 	err = json.NewDecoder(resp.Body).Decode(&user)
 	if err != nil {
 		t.Fatalf("Cannot decode response from create user: %s", err)

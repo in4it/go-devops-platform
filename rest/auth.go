@@ -13,6 +13,7 @@ import (
 	"github.com/in4it/go-devops-platform/auth/saml"
 	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/rest/login"
+	"github.com/in4it/go-devops-platform/users"
 )
 
 func (c *Context) authHandler(w http.ResponseWriter, r *http.Request) {
@@ -56,7 +57,7 @@ func (c *Context) authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if loginResponse.Authenticated {
 		login.ClearAttemptsForLogin(c.LoginAttempts, loginReq.Login)
-		user.LastLogin = time.Now()
+		user.LastLogin = users.TimeOrEmpty(time.Now())
 		err = c.UserStore.UpdateUser(user)
 		if err != nil {
 			logging.ErrorLog(fmt.Errorf("last login update error: %s", err))
