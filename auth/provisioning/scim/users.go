@@ -70,21 +70,23 @@ func (s *Scim) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	write(w, response)
 }
 
-func (s *Scim) getUserHandler(w http.ResponseWriter, r *http.Request) {
-	user, err := s.UserStore.GetUserByID(r.PathValue("id"))
-	if err != nil {
-		returnError(w, fmt.Errorf("get user by id error: %s", err), http.StatusBadRequest)
-		return
-	}
+/*
+	func (s *Scim) getUserHandler(w http.ResponseWriter, r *http.Request) {
+		user, err := s.UserStore.GetUserByID(r.PathValue("id"))
+		if err != nil {
+			returnError(w, fmt.Errorf("get user by id error: %s", err), http.StatusBadRequest)
+			return
+		}
 
-	response, err := userResponse(user)
-	if err != nil {
-		returnError(w, fmt.Errorf("user response error: %s", err), http.StatusBadRequest)
-		return
-	}
+		response, err := userResponse(user)
+		if err != nil {
+			returnError(w, fmt.Errorf("user response error: %s", err), http.StatusBadRequest)
+			return
+		}
 
-	write(w, response)
-}
+		write(w, response)
+	}
+*/
 func (s *Scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := s.UserStore.GetUserByID(r.PathValue("id"))
 	if err != nil {
