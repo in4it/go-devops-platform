@@ -34,7 +34,7 @@ require (
 	github.com/aws/smithy-go v1.22.2 // indirect
 	github.com/beevik/etree v1.4.1 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5
-	github.com/golang-jwt/jwt/v5 v5.2.1
+	github.com/golang-jwt/jwt/v5 v5.2.2
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/mattermost/xml-roundtrip-validator v0.1.0 // indirect
 	github.com/russellhaering/goxmldsig v1.4.0
