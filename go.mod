@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 )
 
@@ -31,7 +31,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.25.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.30.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.33.17 // indirect
-	github.com/aws/smithy-go v1.22.2 // indirect
+	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/beevik/etree v1.5.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5
 	github.com/golang-jwt/jwt/v5 v5.2.2
