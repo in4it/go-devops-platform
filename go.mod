@@ -1,7 +1,6 @@
 module github.com/in4it/go-devops-platform
 
-go 1.24.1
-
+go 1.24.4
 require (
 	github.com/google/uuid v1.6.0
 	github.com/russellhaering/gosaml2 v0.10.0
