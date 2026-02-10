@@ -74,6 +74,11 @@ func getMaxUsers(storage storage.ReadWriter, cloudType, instanceType string) int
 	switch cloudType {
 	case "azure":
 		return GetMaxUsersAzure(instanceType)
+	case "azure-byol":
+		client := http.Client{
+			Timeout: 5 * time.Second,
+		}
+		return GetMaxUsersAzureBYOL(client, storage)
 	case "aws-marketplace":
 		return GetMaxUsersAWS(instanceType)
 	case "aws":

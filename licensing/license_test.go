@@ -205,6 +205,143 @@ func TestGuessInfrastructureAzureBYOL(t *testing.T) {
 	}
 }
 
+func TestGetMaxUsersAzureBYOL(t *testing.T) {
+	azureVMID := "282cfd4d-e384-4ed3-8b33-af7d3b84dc3a"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.RequestURI {
+		case "/metadata/versions":
+			w.WriteHeader(http.StatusOK)
+			return
+		case "/metadata/instance/compute?api-version=2021-02-01":
+			w.Write([]byte(`{
+  "azEnvironment": "AzurePublicCloud",
+  "customData": "",
+  "evictionPolicy": "",
+  "isHostCompatibilityLayerVm": "false",
+  "licenseType": "",
+  "location": "eastus",
+  "name": "vpn-test",
+  "offer": "vpn-server",
+  "osProfile": {
+    "adminUsername": "azureuser",
+    "computerName": "vpn-test",
+    "disablePasswordAuthentication": "true"
+  },
+  "osType": "Linux",
+  "placementGroupId": "",
+  "plan": {
+    "name": "vpn-server-byol-plan",
+    "product": "vpn-server",
+    "publisher": "in4it"
+  },
+    "tags": "",
+  "tagsList": [],
+  "userData": "",
+  "version": "1.1.12",
+  "vmId": "` + azureVMID + `",
+  "vmScaleSetName": "",
+  "vmSize": "Standard_D2_v4",
+  "zone": "1"
+}`))
+			return
+		}
+
+		// return license
+		h := sha256.New()
+		h.Write([]byte(azureVMID))
+
+		if r.RequestURI == fmt.Sprintf("/license-1234556-license-%x", h.Sum(nil)) {
+			w.Write([]byte(`{"users": 50}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
+
+	testCases := map[string]int{
+		"vm1": 50,
+		"vm2": 50,
+	}
+	licenseURL = ts.URL
+	mockStorage := &memorystorage.MockMemoryStorage{}
+	err := mockStorage.WriteFile("config/license.key", []byte("license-1234556-license"))
+	if err != nil {
+		t.Fatalf("writefile error: %s", err)
+	}
+	for _, v := range testCases {
+		if v2, _ := GetMaxUsers(mockStorage); v2 != v {
+			t.Fatalf("Wrong output: %d vs %d", v2, v)
+		}
+	}
+}
+
+func TestGetMaxUsersAzureBYOLNoLicense(t *testing.T) {
+	azureVMID := "282cfd4d-e384-4ed3-8b33-af7d3b84dc3a"
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.RequestURI {
+		case "/metadata/versions":
+			w.WriteHeader(http.StatusOK)
+			return
+		case "/metadata/instance/compute?api-version=2021-02-01":
+			w.Write([]byte(`{
+  "azEnvironment": "AzurePublicCloud",
+  "customData": "",
+  "evictionPolicy": "",
+  "isHostCompatibilityLayerVm": "false",
+  "licenseType": "",
+  "location": "eastus",
+  "name": "vpn-test",
+  "offer": "vpn-server",
+  "osProfile": {
+    "adminUsername": "azureuser",
+    "computerName": "vpn-test",
+    "disablePasswordAuthentication": "true"
+  },
+  "osType": "Linux",
+  "placementGroupId": "",
+  "plan": {
+    "name": "vpn-server-byol-plan",
+    "product": "vpn-server",
+    "publisher": "in4it"
+  },
+    "tags": "",
+  "tagsList": [],
+  "userData": "",
+  "version": "1.1.12",
+  "vmId": "` + azureVMID + `",
+  "vmScaleSetName": "",
+  "vmSize": "Standard_D2_v4",
+  "zone": "1"
+}`))
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
+
+	testCases := map[string]int{
+		"vm1": 3,
+		"vm2": 3,
+	}
+	licenseURL = ts.URL
+	mockStorage := &memorystorage.MockMemoryStorage{}
+	err := mockStorage.WriteFile("config/license.key", []byte("license-12345567-license"))
+	if err != nil {
+		t.Fatalf("writefile error: %s", err)
+	}
+	for _, v := range testCases {
+		if v2, _ := GetMaxUsers(mockStorage); v2 != v {
+			t.Fatalf("Wrong output: %d vs %d", v2, v)
+		}
+	}
+}
+
 func TestGuessInfrastructureAWSMarketplace(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.RequestURI == "/metadata/versions" {
