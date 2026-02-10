@@ -22,9 +22,9 @@ func TestGuessInfrastructureGCP(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "gcp" {
 		t.Fatalf("wrong infra returned: %s", infra)

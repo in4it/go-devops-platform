@@ -14,11 +14,8 @@ import (
 var MetadataIP = "169.254.169.254"
 var licenseURL = "https://in4it-vpn-server.s3.amazonaws.com/licenses"
 
-func guessInfrastructure() string {
+func guessInfrastructure(client http.Client) string {
 	// check whether we are on AWS, Azure, DigitalOcean or something undefined
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
 
 	if isOnAWSMarketPlace(client) {
 		return "aws-marketplace"
@@ -29,7 +26,12 @@ func guessInfrastructure() string {
 	}
 
 	if isOnAzure(client) {
-		return "azure"
+		if plan := getAzureInstancePlan(client); plan.Name != "" {
+			if plan.Publisher == "in4it" && plan.Name == "vpn-server-plan" && plan.Product == "vpn-server" {
+				return "azure"
+			}
+		}
+		return "azure-byol"
 	}
 
 	if isOnDigitalOcean(client) {
@@ -47,9 +49,11 @@ func GetInstanceType() (string, string) {
 	client := http.Client{
 		Timeout: 5 * time.Second,
 	}
-	switch guessInfrastructure() {
+	switch guessInfrastructure(client) {
 	case "azure":
 		return "azure", getAzureInstanceType(client)
+	case "azure-byol":
+		return "azure-byol", getAzureInstanceType(client)
 	case "aws-marketplace":
 		return "aws-marketplace", getAWSInstanceType(client)
 	case "aws":
@@ -82,11 +86,11 @@ func getMaxUsers(storage storage.ReadWriter, cloudType, instanceType string) int
 			Timeout: 5 * time.Second,
 		}
 		return GetMaxUsersDigitalOceanBYOL(client, storage)
-       case "gcp":
-               client := http.Client{
-                       Timeout: 5 * time.Second,
-               }
-               return GetMaxUsersGCPBYOL(client, storage)
+	case "gcp":
+		client := http.Client{
+			Timeout: 5 * time.Second,
+		}
+		return GetMaxUsersGCPBYOL(client, storage)
 	case "":
 		client := http.Client{
 			Timeout: 5 * time.Second,

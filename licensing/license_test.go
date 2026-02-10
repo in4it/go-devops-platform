@@ -119,19 +119,88 @@ func TestGetMaxUsersAWS(t *testing.T) {
 
 func TestGuessInfrastructureAzure(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.RequestURI == "/metadata/versions" {
+		switch r.RequestURI {
+		case "/metadata/versions":
 			w.WriteHeader(http.StatusOK)
 			return
+		case "/metadata/instance/compute?api-version=2021-02-01":
+			w.Write([]byte(`{
+  "azEnvironment": "AzurePublicCloud",
+  "customData": "",
+  "evictionPolicy": "",
+  "isHostCompatibilityLayerVm": "false",
+  "licenseType": "",
+  "location": "eastus",
+  "name": "vpn-test",
+  "offer": "vpn-server",
+  "osProfile": {
+    "adminUsername": "azureuser",
+    "computerName": "vpn-test",
+    "disablePasswordAuthentication": "true"
+  },
+  "osType": "Linux",
+  "placementGroupId": "",
+  "plan": {
+    "name": "vpn-server-plan",
+    "product": "vpn-server",
+    "publisher": "in4it"
+  }
+}`))
+			return
 		}
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	defer ts.Close()
 
-	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "azure" {
+		t.Fatalf("wrong infra returned: %s", infra)
+	}
+}
+
+func TestGuessInfrastructureAzureBYOL(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.RequestURI {
+		case "/metadata/versions":
+			w.WriteHeader(http.StatusOK)
+			return
+		case "/metadata/instance/compute?api-version=2021-02-01":
+			w.Write([]byte(`{
+  "azEnvironment": "AzurePublicCloud",
+  "customData": "",
+  "evictionPolicy": "",
+  "isHostCompatibilityLayerVm": "false",
+  "licenseType": "",
+  "location": "eastus",
+  "name": "vpn-test",
+  "offer": "vpn-server",
+  "osProfile": {
+    "adminUsername": "azureuser",
+    "computerName": "vpn-test",
+    "disablePasswordAuthentication": "true"
+  },
+  "osType": "Linux",
+  "placementGroupId": "",
+  "plan": {
+    "name": "vpn-server-byol-plan",
+    "product": "vpn-server",
+    "publisher": "in4it"
+  }
+}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
+
+	infra := guessInfrastructure(*ts.Client())
+
+	if infra != "azure-byol" {
 		t.Fatalf("wrong infra returned: %s", infra)
 	}
 }
@@ -172,7 +241,7 @@ func TestGuessInfrastructureAWSMarketplace(t *testing.T) {
 
 	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "aws-marketplace" {
 		t.Fatalf("wrong infra returned: %s", infra)
@@ -206,7 +275,7 @@ func TestGuessInfrastructureAWS(t *testing.T) {
 
 	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "aws" {
 		t.Fatalf("wrong infra returned: %s", infra)
@@ -223,9 +292,9 @@ func TestGuessInfrastructureOther(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "" {
 		t.Fatalf("wrong infra returned: %s", infra)
@@ -294,9 +363,9 @@ func TestGuessInfrastructureDigitalOcean(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	MetadataIP = strings.Replace(ts.URL, "http://", "", -1)
+	MetadataIP = strings.ReplaceAll(ts.URL, "http://", "")
 
-	infra := guessInfrastructure()
+	infra := guessInfrastructure(*ts.Client())
 
 	if infra != "digitalocean" {
 		t.Fatalf("wrong infra returned: %s", infra)

@@ -79,3 +79,33 @@ func getAzureInstanceType(client http.Client) string {
 	}
 	return instanceMetadata.Compute.VMSize
 }
+
+func getAzureInstancePlan(client http.Client) Plan {
+	metadataEndpoint := "http://" + MetadataIP + "/metadata/instance/compute?api-version=2021-02-01"
+	req, err := http.NewRequest("GET", metadataEndpoint, nil)
+	if err != nil {
+		return Plan{}
+	}
+
+	req.Header.Add("Metadata", "true")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return Plan{}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return Plan{}
+	}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return Plan{}
+	}
+	var instanceComputeMetadata Compute
+	err = json.Unmarshal(bodyBytes, &instanceComputeMetadata)
+	if err != nil {
+		return Plan{}
+	}
+	return instanceComputeMetadata.Plan
+}
