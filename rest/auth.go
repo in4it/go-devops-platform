@@ -409,6 +409,67 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (c *Context) authMethodsByIDRedirect(w http.ResponseWriter, r *http.Request) {
+	switch r.PathValue("method") {
+	case "saml":
+		id := r.PathValue("id")
+		samlProviderId := -1
+		for k := range *c.SAML.Providers {
+			if (*c.SAML.Providers)[k].ID == id {
+				samlProviderId = k
+			}
+		}
+		if samlProviderId == -1 {
+			c.returnError(w, fmt.Errorf("cannot find saml provider"), http.StatusBadRequest)
+			return
+		}
+		redirectURI, err := c.SAML.Client.GetAuthURL((*c.SAML.Providers)[samlProviderId])
+		if err != nil {
+			c.returnError(w, fmt.Errorf("cannot get auth url"), http.StatusBadRequest)
+			return
+		}
+
+		sendCorsHeaders(w, "", c.Hostname, c.Protocol)
+		http.Redirect(w, r, redirectURI, http.StatusFound)
+
+		return
+	default:
+		id := r.PathValue("id")
+		for _, oidcProvider := range c.OIDCProviders {
+			if id == oidcProvider.ID {
+				callback := fmt.Sprintf("%s://%s%s", c.Protocol, c.Hostname, oidcProvider.RedirectURI)
+				discovery, err := c.OIDCStore.GetDiscoveryURI(oidcProvider.DiscoveryURI)
+				if err != nil {
+					c.returnError(w, fmt.Errorf("getDiscoveryURI error: %s", err), http.StatusBadRequest)
+					return
+				}
+				redirectURI, state, err := oidc.GetRedirectURI(discovery, oidcProvider.ClientID, oidcProvider.Scope, callback, c.EnableOIDCTokenRenewal)
+				if err != nil {
+					c.returnError(w, fmt.Errorf("GetRedirectURI error: %s", err), http.StatusBadRequest)
+					return
+				}
+
+				newOAuthEntry := oidc.OAuthData{
+					ID:             uuid.NewString(),
+					OIDCProviderID: oidcProvider.ID,
+					CreatedAt:      time.Now(),
+				}
+				err = c.OIDCStore.SaveOAuth2Data(newOAuthEntry, state)
+				if err != nil {
+					c.returnError(w, fmt.Errorf("unable to save state to oidc store: %s", err), http.StatusBadRequest)
+					return
+				}
+
+				sendCorsHeaders(w, "", c.Hostname, c.Protocol)
+				http.Redirect(w, r, redirectURI, http.StatusFound)
+
+				return
+			}
+		}
+		c.returnError(w, fmt.Errorf("element not found"), http.StatusBadRequest)
+	}
+}
+
 func (c *Context) oidcRenewTokensHandler(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
