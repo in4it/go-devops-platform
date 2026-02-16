@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/storage"
@@ -40,7 +41,23 @@ func StartServer(httpPort, httpsPort int, storage storage.Iface, c *Context, ass
 	// HTTP Configuration
 	go func() { // start http server
 		log.Printf("Start http server on port %d", httpPort)
-		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", httpPort), certManager.HTTPHandler(c.loggingMiddleware(c.httpsRedirectMiddleware(c.corsMiddleware(c.getRouter(assetsFS, indexHtmlBody)))))))
+		httpServer := &http.Server{
+			Addr: fmt.Sprintf(":%d", httpPort),
+
+			Handler: certManager.HTTPHandler(c.loggingMiddleware(c.httpsRedirectMiddleware(c.corsMiddleware(c.getRouter(assetsFS, indexHtmlBody))))),
+
+			ReadHeaderTimeout: 5 * time.Second,
+			ReadTimeout:       10 * time.Second,
+			WriteTimeout:      15 * time.Second,
+			IdleTimeout:       60 * time.Second,
+
+			MaxHeaderBytes: 1 << 20, // 1MB
+		}
+
+		err := httpServer.ListenAndServe()
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatalf("http server failed: %v", err)
+		}
 	}()
 
 	// TLS Configuration
@@ -59,6 +76,13 @@ func StartServer(httpPort, httpsPort int, storage storage.Iface, c *Context, ass
 			GetCertificate: certManager.GetCertificate,
 		},
 		Handler: c.loggingMiddleware(c.corsMiddleware(c.getRouter(assetsFS, indexHtmlBody))),
+
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+
+		MaxHeaderBytes: 1 << 20, // 1MB
 	}
 	c.Protocol = "https"
 	TLSWaiterCompleted = true
