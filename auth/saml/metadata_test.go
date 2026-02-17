@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 )
 
@@ -61,7 +62,12 @@ func TestGetMetadata(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	metadata, err := getMetadata(ts.URL)
+	urlParsed, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatalf("unexpected error parsing test server URL: %v", err)
+	}
+
+	metadata, err := getMetadata(urlParsed)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
