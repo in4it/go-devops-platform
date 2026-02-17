@@ -50,14 +50,7 @@ func (s *saml) HasValidMetadataURL(metadataURL string) (bool, error) {
 		return false, fmt.Errorf("url parse error: %w", err)
 	}
 
-	if err := basicURLChecks(metadataURLParsed); err != nil {
-		return false, err
-	}
-	if err := rejectCloudMetadata(metadataURLParsed); err != nil {
-		return false, err
-	}
-
-	_, err = getMetadata(metadataURLParsed.String())
+	_, err = getMetadata(metadataURLParsed)
 	if err != nil {
 		return false, fmt.Errorf("fetch metadata error: %w", err)
 	}
@@ -106,7 +99,7 @@ func rejectCloudMetadata(u *url.URL) error {
 	return nil
 }
 
-func getMetadata(metadataURL string) (types.EntityDescriptor, error) {
+func getMetadata(metadataURL *url.URL) (types.EntityDescriptor, error) {
 	metadata := types.EntityDescriptor{}
 
 	client := &http.Client{
@@ -141,7 +134,14 @@ func getMetadata(metadataURL string) (types.EntityDescriptor, error) {
 		},
 	}
 
-	req, err := http.NewRequest(http.MethodGet, metadataURL, nil)
+	if err := basicURLChecks(metadataURL); err != nil {
+		return metadata, err
+	}
+	if err := rejectCloudMetadata(metadataURL); err != nil {
+		return metadata, err
+	}
+
+	req, err := http.NewRequest(http.MethodGet, metadataURL.String(), nil)
 	if err != nil {
 		return metadata, fmt.Errorf("can't build request: %w", err)
 	}

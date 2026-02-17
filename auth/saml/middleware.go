@@ -3,10 +3,7 @@ package saml
 import (
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/xml"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 
 	saml2 "github.com/russellhaering/gosaml2"
@@ -47,18 +44,7 @@ func (s *saml) loadSP(provider Provider) error {
 		return fmt.Errorf("can't parse metadata url: %s", err)
 	}
 	// pull metadata
-	res, err := http.Get(idpMetadataURL.String())
-	if err != nil {
-		return fmt.Errorf("can't retrieve saml metadata: %s", err)
-	}
-
-	rawMetadata, err := io.ReadAll(res.Body)
-	if err != nil {
-		return fmt.Errorf("can't read saml cert data: %s", err)
-	}
-
-	metadata := &types.EntityDescriptor{}
-	err = xml.Unmarshal(rawMetadata, metadata)
+	metadata, err := getMetadata(idpMetadataURL)
 	if err != nil {
 		return fmt.Errorf("can't decode saml cert data: %s", err)
 	}
