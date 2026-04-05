@@ -13,7 +13,8 @@ func (store *Store) GetJwks(jwksURI string) (oidc.Jwks, error) {
 	var jwksKeys oidc.Jwks
 
 	if cachedJwks, ok := store.JwksCache[jwksURI]; ok {
-		if cachedJwks.Expiration.Before(time.Now()) {
+		// Return cached keys only when they are still valid; otherwise fetch fresh keys.
+		if cachedJwks.Expiration.After(time.Now()) {
 			return cachedJwks.Jwks, nil // cache hit, we can return
 		}
 	}
