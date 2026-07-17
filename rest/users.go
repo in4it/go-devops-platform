@@ -15,6 +15,20 @@ func userHasClaims(r *http.Request) bool {
 	return r.Context().Value(CustomValue("claims")) != nil
 }
 
+// tokenIssuedBeforePasswordChange reports whether the token's issued-at (iat)
+// claim predates the user's last password change. Tokens minted before a
+// password change must be rejected so that earlier sessions are expired.
+func tokenIssuedBeforePasswordChange(claims jwt.MapClaims, user users.User) bool {
+	if user.PasswordChangedAt.IsZero() {
+		return false // password never changed: nothing to expire
+	}
+	iat, ok := claims["iat"].(float64) // numeric JWT claims decode to float64
+	if !ok {
+		return false // no usable iat: leave existing validation to handle it
+	}
+	return int64(iat) < user.PasswordChangedAt.UTC().Unix()
+}
+
 func (c *Context) GetUserFromRequest(r *http.Request) (users.User, error) {
 	claims := r.Context().Value(CustomValue("claims")).(jwt.MapClaims)
 	sub, ok := claims["sub"]
@@ -35,6 +49,12 @@ func (c *Context) GetUserFromRequest(r *http.Request) (users.User, error) {
 		user, err := c.UserStore.GetUserByLogin(sub.(string))
 		if err != nil {
 			return users.User{}, fmt.Errorf("GetUserByLogin: user not found")
+		}
+		// Expire tokens that were issued before the user last changed their
+		// password. This makes sure earlier sessions can no longer be used once
+		// the password is changed locally.
+		if tokenIssuedBeforePasswordChange(claims, user) {
+			return users.User{}, fmt.Errorf("token issued before password change, please log in again")
 		}
 		return user, nil
 	} else { // user comes from oidc
