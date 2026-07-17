@@ -27,6 +27,7 @@ type User struct {
 	Factors                          []Factor    `json:"factors"`
 	ExternalID                       string      `json:"externalID,omitempty"`
 	LastLogin                        TimeOrEmpty `json:"lastLogin"`
+	PasswordChangedAt                TimeOrEmpty `json:"passwordChangedAt"`
 }
 
 type TimeOrEmpty time.Time

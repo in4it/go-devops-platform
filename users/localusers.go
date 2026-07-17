@@ -2,6 +2,7 @@ package users
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -145,6 +146,9 @@ func (u *UserStore) UpdatePassword(userID string, password string) error {
 				return fmt.Errorf("HashPassword error: %s", err)
 			}
 			u.Users[k].Password = hashedPassword
+			// Record when the password was changed so that auth tokens issued
+			// before this moment can be expired (earlier sessions get logged out).
+			u.Users[k].PasswordChangedAt = TimeOrEmpty(time.Now())
 			if u.autoSave {
 				return u.SaveUsers()
 			} else {
