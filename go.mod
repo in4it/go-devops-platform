@@ -10,7 +10,7 @@ require (
 
 require (
 	github.com/aws/aws-sdk-go-v2/service/signin v1.0.11 // indirect
-	golang.org/x/net v0.54.0 // indirect
+	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 )
 
