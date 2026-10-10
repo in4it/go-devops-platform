@@ -113,6 +113,7 @@ func UpdateOAuth2DataWithToken(jwks Jwks, discovery Discovery, clientID, clientS
 	newOAuthData.Subject = subject.(string)
 	newOAuthData.Issuer = issuer.(string)
 	newOAuthData.UserInfo.Email = validEmail
+	newOAuthData.UserInfo.EmailNotVerified = emailNotVerified(claims)
 	return newOAuthData, nil
 }
 
@@ -140,8 +141,7 @@ func GetPublicKeyForToken(allJwks []Jwks, discoveryProviders []Discovery, token 
 	return nil, fmt.Errorf("no matching kid found for token")
 }
 
-// validateIDTokenClaims checks the audience, issuer and email_verified claims of
-// an id token
+// validateIDTokenClaims checks the audience and issuer claims of an id token
 func validateIDTokenClaims(claims jwt.MapClaims, discovery Discovery, clientID string) error {
 	audience, err := claims.GetAudience()
 	if err != nil {
@@ -162,22 +162,38 @@ func validateIDTokenClaims(claims jwt.MapClaims, discovery Discovery, clientID s
 				expectedIssuer = strings.ReplaceAll(expectedIssuer, "{tenantid}", tenantID)
 			}
 		}
-		if issuer != expectedIssuer {
+		if !issuerMatches(issuer, expectedIssuer) {
 			return fmt.Errorf("id token issuer doesn't match the issuer of the oidc provider")
 		}
 	}
-	// only reject when the IdP explicitly says the email address is not verified
-	if emailVerified, ok := claims["email_verified"]; ok {
-		verified := true
-		switch v := emailVerified.(type) {
-		case bool:
-			verified = v
-		case string:
-			verified = !strings.EqualFold(v, "false")
-		}
-		if !verified {
-			return fmt.Errorf("email address in id token is not verified")
-		}
-	}
 	return nil
+}
+
+// issuerMatches compares the id token issuer with the issuer of the discovery
+// document. Google documents both https://accounts.google.com and
+// accounts.google.com as valid issuers.
+func issuerMatches(issuer, expectedIssuer string) bool {
+	if issuer == expectedIssuer {
+		return true
+	}
+	if expectedIssuer == "https://accounts.google.com" && issuer == "accounts.google.com" {
+		return true
+	}
+	return false
+}
+
+// emailNotVerified returns true when the IdP explicitly says the email address
+// is not verified (email_verified=false). A missing claim is not treated as unverified.
+func emailNotVerified(claims jwt.MapClaims) bool {
+	emailVerified, ok := claims["email_verified"]
+	if !ok {
+		return false
+	}
+	switch v := emailVerified.(type) {
+	case bool:
+		return !v
+	case string:
+		return strings.EqualFold(v, "false")
+	}
+	return false
 }

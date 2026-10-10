@@ -86,6 +86,10 @@ func newContextWithParams(storage storage.Iface, serverType string, userStore *u
 		}
 	} else {
 		c.SCIM.Client = scimInstance
+		// the saved token isn't known to a new scim instance (e.g. after a restart)
+		if scimInstance != nil && c.SCIM.Token != "" {
+			scimInstance.UpdateToken(c.SCIM.Token)
+		}
 	}
 	if c.SAML == nil {
 		providers := []saml.Provider{}

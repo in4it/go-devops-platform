@@ -75,4 +75,6 @@ type OAuthData struct {
 
 type UserInfo struct {
 	Email string `json:"email"`
+	// EmailNotVerified is set when the IdP explicitly says the email address is not verified
+	EmailNotVerified bool `json:"emailNotVerified,omitempty"`
 }

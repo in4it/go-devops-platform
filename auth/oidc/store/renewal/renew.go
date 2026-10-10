@@ -66,6 +66,7 @@ func (r *Renewal) renew(discovery oidc.Discovery, key string, oauth2Data oidc.OA
 	}
 	logging.DebugLog(fmt.Errorf("new token issued at %v: %+v", newToken, newTokenTimestamp))
 	oauth2Data.LastTokenRenewal = newTokenTimestamp
+	oauth2Data.RenewalRetries = 0 // retries only count consecutive failures
 	oauth2Data.Token.AccessToken = newToken.AccessToken
 	oauth2Data.Token.ExpiresIn = newToken.ExpiresIn
 	oauth2Data.Token.RefreshToken = newToken.RefreshToken
@@ -119,6 +120,10 @@ func canRenew(renewalTime time.Duration, oauth2Data oidc.OAuthData, store *oidcs
 	}
 	if oauth2Data.Token.AccessToken == "" {
 		logging.DebugLog(fmt.Errorf("access token empty of oidc id %s", oauth2Data.ID))
+		return false, oidc.OIDCProvider{}, oidc.Discovery{}, nil
+	}
+	if oauth2Data.Token.RefreshToken == "" { // no refresh token (e.g. offline_access scope not requested): can't renew
+		logging.DebugLog(fmt.Errorf("refresh token empty of oidc id %s", oauth2Data.ID))
 		return false, oidc.OIDCProvider{}, oidc.Discovery{}, nil
 	}
 	expirationDate, err := getExpirationDate(oauth2Data.Token.AccessToken)

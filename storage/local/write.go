@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // WriteFile writes the data atomically: the data is written to a temporary file in the same directory,
@@ -118,4 +119,9 @@ func (l *LocalStorage) OpenFileForAppending(name string) (io.WriteCloser, error)
 		return nil, err
 	}
 	return file, nil
+}
+
+// isTempFile returns true for the temporary files WriteFile creates (.<name>.tmp-<random>)
+func isTempFile(name string) bool {
+	return strings.HasPrefix(name, ".") && strings.Contains(name, ".tmp-")
 }

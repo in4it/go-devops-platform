@@ -86,9 +86,12 @@ func (l *LocalStorage) ReadDir(pathname string) ([]string, error) {
 	if err != nil {
 		return []string{}, err
 	}
-	resNames := make([]string, len(res))
-	for k, v := range res {
-		resNames[k] = v.Name()
+	resNames := make([]string, 0, len(res))
+	for _, v := range res {
+		if isTempFile(v.Name()) { // left behind by an interrupted WriteFile
+			continue
+		}
+		resNames = append(resNames, v.Name())
 	}
 	return resNames, nil
 }

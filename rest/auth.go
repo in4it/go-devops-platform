@@ -2,7 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -218,17 +217,7 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 			}
 
 			// add user to the user database (or modify existing one)
-			user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, samlSession.Login, "saml", samlSession.ID)
-			if errors.Is(err, errNoLicense) {
-				loginResponse.NoLicense = true
-				out, err := json.Marshal(loginResponse)
-				if err != nil {
-					c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
-					return
-				}
-				c.write(w, out)
-				return
-			}
+			user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, samlSession.Login, "saml", samlSession.ID, externalUserOptions{})
 			if err != nil {
 				c.returnError(w, fmt.Errorf("couldn't add/modify user in database: %s", err), http.StatusBadRequest)
 				return
@@ -309,17 +298,7 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 					// add user to the user database (or modify existing one)
-					user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, updatedOauth2data.UserInfo.Email, "oidc", updatedOauth2data.ID)
-					if errors.Is(err, errNoLicense) {
-						loginResponse.NoLicense = true
-						out, err := json.Marshal(loginResponse)
-						if err != nil {
-							c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
-							return
-						}
-						c.write(w, out)
-						return
-					}
+					user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, updatedOauth2data.UserInfo.Email, "oidc", updatedOauth2data.ID, externalUserOptions{EmailNotVerified: updatedOauth2data.UserInfo.EmailNotVerified})
 					if err != nil {
 						c.returnError(w, fmt.Errorf("couldn't add/modify user in database: %s", err), http.StatusBadRequest)
 						return
