@@ -27,7 +27,9 @@ func NewRenewal(storage storage.Iface, renewalTime int, contextLogLevel int, ena
 		userStore:     userStore,
 		storage:       storage,
 	}
-	logging.Loglevel = contextLogLevel
+	if logging.Loglevel != contextLogLevel { // only write when changed: background goroutines read it
+		logging.Loglevel = contextLogLevel
+	}
 	if renewalTime <= 5 {
 		r.renewalTime = DEFAULT_RENEWAL_TIME_MINUTES * time.Minute
 	} else {

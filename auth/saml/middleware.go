@@ -16,29 +16,36 @@ const AUDIENCE_URL = "saml/aud"
 const ACS_URL = "saml/acs"
 
 func (s *saml) ensureSPLoaded(provider Provider) error {
-	if _, ok := s.serviceProvider[provider.ID]; !ok {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sp, ok := s.serviceProvider[provider.ID]
+	if !ok {
 		err := s.loadSP(provider)
 		if err != nil {
 			return fmt.Errorf("could not load saml provider: %s", err)
 		}
-	} else {
-		// check if provider is up-to-date
-		if provider.AllowMissingAttributes != s.serviceProvider[provider.ID].AllowMissingAttributes {
-			s.serviceProvider[provider.ID] = nil
-		}
-		if s.serviceProvider[provider.ID] == nil {
-			err := s.loadSP(provider)
-			if err != nil {
-				return fmt.Errorf("could not reload saml provider: %s", err)
-			}
+		return nil
+	}
+	// check if provider is up-to-date
+	if sp == nil || provider.AllowMissingAttributes != sp.AllowMissingAttributes {
+		err := s.loadSP(provider)
+		if err != nil {
+			return fmt.Errorf("could not reload saml provider: %s", err)
 		}
 	}
 	return nil
 }
 
-func (s *saml) loadSP(provider Provider) error {
+// getServiceProvider returns the loaded service provider for a provider id
+func (s *saml) getServiceProvider(providerID string) (*saml2.SAMLServiceProvider, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	sp, ok := s.serviceProvider[providerID]
+	return sp, ok && sp != nil
+}
+
+// loadSP loads the service provider. Must be called with s.mu held.
+func (s *saml) loadSP(provider Provider) error {
 	idpMetadataURL, err := url.Parse(provider.MetadataURL)
 	if err != nil {
 		return fmt.Errorf("can't parse metadata url: %s", err)
@@ -114,8 +121,9 @@ func (s *saml) GetAuthURL(provider Provider) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("saml error: invalid saml configuration: %s", err)
 	}
-	if _, ok := s.serviceProvider[provider.ID]; !ok {
+	sp, ok := s.getServiceProvider(provider.ID)
+	if !ok {
 		return "", fmt.Errorf("provider not found")
 	}
-	return s.serviceProvider[provider.ID].BuildAuthURL("")
+	return sp.BuildAuthURL("")
 }

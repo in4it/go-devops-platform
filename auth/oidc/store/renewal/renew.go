@@ -16,7 +16,7 @@ import (
 func (r *Renewal) RenewAllOIDCConnections() []users.User {
 	disabledUsers := []users.User{}
 	// force renewal of all tokens, even if they're not expired (unless they're empty)
-	for key, oauth2Data := range r.oidcStore.OAuth2Data {
+	for key, oauth2Data := range r.oidcStore.GetOAuth2DataCopy() {
 		if oidcProvider, err := getOIDCProvider(oauth2Data.OIDCProviderID, r.oidcProviders); err == nil {
 			if discovery, err := r.oidcStore.GetDiscoveryURI(oidcProvider.DiscoveryURI); err == nil {
 				if oauth2Data.RenewalFailed || oauth2Data.Token.AccessToken == "" {

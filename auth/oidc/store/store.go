@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sync"
 
 	"github.com/in4it/go-devops-platform/auth/oidc"
@@ -13,6 +14,22 @@ import (
 const DEFAULT_PATH = "oidcstore.json"
 
 var RetrieveTokenLock sync.Mutex
+
+// GetOAuth2DataCopy returns a copy of all oauth2 entries. Use it instead of ranging
+// over store.OAuth2Data directly, which races with concurrent writes.
+func (store *Store) GetOAuth2DataCopy() map[string]oidc.OAuthData {
+	store.Mu.Lock()
+	defer store.Mu.Unlock()
+	return maps.Clone(store.OAuth2Data)
+}
+
+// GetOAuth2DataByKey returns the oauth2 entry stored under key (the state).
+func (store *Store) GetOAuth2DataByKey(key string) (oidc.OAuthData, bool) {
+	store.Mu.Lock()
+	defer store.Mu.Unlock()
+	oauth2Data, ok := store.OAuth2Data[key]
+	return oauth2Data, ok
+}
 
 func (store *Store) StoreEntry(state string, oauthData oidc.OAuthData) error {
 	store.Mu.Lock()

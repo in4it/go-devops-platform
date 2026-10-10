@@ -163,3 +163,11 @@ type NewUserRequest struct {
 	Role     string `json:"role"`
 	Password string `json:"password,omitempty"`
 }
+
+// UserPatchRequest is the body of PATCH /api/user/{id}. Suspended is a pointer
+// so we can tell an absent field apart from false.
+type UserPatchRequest struct {
+	Role      string `json:"role"`
+	Suspended *bool  `json:"suspended"`
+	Password  string `json:"password"`
+}

@@ -24,7 +24,6 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/api/authmethods/{method}/{id}/redirect", http.HandlerFunc(c.authMethodsByIDRedirect))
 	mux.Handle("/api/authmethods/{method}/{id}", http.HandlerFunc(c.authMethodsByID))
 	mux.Handle("/api/authmethods/{id}", http.HandlerFunc(c.authMethodsByID))
-	mux.Handle("/api/upgrade", http.HandlerFunc(c.upgrade))
 	mux.Handle("/", returnIndexOrNotFound(indexHtml))
 
 	// endpoints for apps
@@ -51,6 +50,7 @@ func (c *Context) getRouter(assets fs.FS, indexHtml []byte) *http.ServeMux {
 	mux.Handle("/api/scim-setup", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.scimSetupHandler)))))
 	mux.Handle("/api/saml-setup", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.samlSetupHandler)))))
 	mux.Handle("/api/saml-setup/{id}", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.samlSetupElementHandler)))))
+	mux.Handle("/api/upgrade", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.upgrade)))))
 	mux.Handle("/api/users", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.usersHandler)))))
 	mux.Handle("/api/user/{id}", c.authMiddleware(c.injectUserMiddleware(c.isAdminMiddleware(http.HandlerFunc(c.userHandler)))))
 

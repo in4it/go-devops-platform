@@ -10,7 +10,10 @@ func (s *saml) GetAuthenticatedUser(provider Provider, sessionID string) (Authen
 		ProviderID: provider.ID,
 		SessionID:  sessionID,
 	}
-	if authenticatedUser, ok := s.sessions[sessionKey]; ok {
+	s.mu.Lock()
+	authenticatedUser, ok := s.sessions[sessionKey]
+	s.mu.Unlock()
+	if ok {
 		if authenticatedUser.ExpiresAt.Before(time.Now()) {
 			return authenticatedUser, fmt.Errorf("session is expired")
 		}
