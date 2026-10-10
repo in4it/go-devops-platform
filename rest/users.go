@@ -56,10 +56,13 @@ func (c *Context) GetUserFromRequest(r *http.Request) (users.User, error) {
 		if tokenIssuedBeforePasswordChange(claims, user) {
 			return users.User{}, fmt.Errorf("token issued before password change, please log in again")
 		}
+		if user.Suspended {
+			return users.User{}, fmt.Errorf("user is suspended")
+		}
 		return user, nil
 	} else { // user comes from oidc
 		oauth2DataIDs := []string{}
-		for _, oauth2Data := range c.OIDCStore.OAuth2Data {
+		for _, oauth2Data := range c.OIDCStore.GetOAuth2DataCopy() {
 			if oauth2Data.Issuer == iss && oauth2Data.Subject == sub {
 				oauth2DataIDs = append(oauth2DataIDs, oauth2Data.ID)
 			}
@@ -70,6 +73,9 @@ func (c *Context) GetUserFromRequest(r *http.Request) (users.User, error) {
 		user, err := c.UserStore.GetUserByOIDCIDs(oauth2DataIDs)
 		if err != nil {
 			return user, fmt.Errorf("get user by oidc id failed: %s", err)
+		}
+		if user.Suspended {
+			return users.User{}, fmt.Errorf("user is suspended")
 		}
 		return user, nil
 	}
@@ -92,7 +98,7 @@ func (c *Context) usersHandler(w http.ResponseWriter, r *http.Request) {
 			if !user.LastLogin.IsZero() {
 				userResponse[k].LastLogin = user.LastLogin.UTC().Format(time.RFC3339)
 			}
-			for _, oauth2Data := range c.OIDCStore.OAuth2Data {
+			for _, oauth2Data := range c.OIDCStore.GetOAuth2DataCopy() {
 				if oauth2Data.ID == user.OIDCID {
 					userResponse[k].LastTokenRenewal = oauth2Data.LastTokenRenewal
 				}
@@ -170,7 +176,7 @@ func (c *Context) userHandler(w http.ResponseWriter, r *http.Request) {
 			c.returnError(w, fmt.Errorf("user not found: %s", err), http.StatusBadRequest)
 			return
 		}
-		var user users.User
+		var user UserPatchRequest
 		decoder := json.NewDecoder(r.Body)
 		err = decoder.Decode(&user)
 		if err != nil {
@@ -179,22 +185,28 @@ func (c *Context) userHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		updateUser := false
 		if user.Role != "" && dbUser.Role != user.Role {
+			if user.Role != "admin" && user.Role != "user" {
+				c.returnError(w, fmt.Errorf("invalid role: %s", user.Role), http.StatusBadRequest)
+				return
+			}
 			dbUser.Role = user.Role
 			updateUser = true
 		}
-		if dbUser.Suspended != user.Suspended {
-			dbUser.Suspended = user.Suspended
+		// only change the suspended state when it's part of the request,
+		// a password change only sends the password
+		if user.Suspended != nil && dbUser.Suspended != *user.Suspended {
+			dbUser.Suspended = *user.Suspended
 			updateUser = true
-			if user.Suspended { // user is now suspended
-				err := c.UserStore.UserHooks.DisableFunc(c.Storage.Client, user)
+			if dbUser.Suspended { // user is now suspended
+				err := c.UserStore.UserHooks.DisableFunc(c.Storage.Client, dbUser)
 				if err != nil {
-					c.returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
+					c.returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", dbUser.ID, err), http.StatusBadRequest)
 					return
 				}
 			} else { // user is now unsuspended
-				err := c.UserStore.UserHooks.ReactivateFunc(c.Storage.Client, user)
+				err := c.UserStore.UserHooks.ReactivateFunc(c.Storage.Client, dbUser)
 				if err != nil {
-					c.returnError(w, fmt.Errorf("could not reactivate all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
+					c.returnError(w, fmt.Errorf("could not reactivate all clients for user %s: %s", dbUser.ID, err), http.StatusBadRequest)
 					return
 				}
 			}
@@ -207,7 +219,7 @@ func (c *Context) userHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if user.Password != "" {
-			err = c.UserStore.UpdatePassword(user.ID, user.Password)
+			err = c.UserStore.UpdatePassword(dbUser.ID, user.Password)
 			if err != nil {
 				c.returnError(w, fmt.Errorf("update password error: %s", err), http.StatusBadRequest)
 				return
@@ -238,7 +250,8 @@ func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, 
 			existingUser.SAMLID = externalAuthID
 		}
 
-		if existingUser.ConnectionsDisabledOnAuthFailure { // we can enable connections again after auth
+		// we can enable connections again after auth, unless the user is suspended
+		if existingUser.ConnectionsDisabledOnAuthFailure && !existingUser.Suspended {
 			err := userStore.UserHooks.ReactivateFunc(storage, existingUser)
 			if err != nil {
 				return existingUser, fmt.Errorf("could not reactivate all clients for user %s: %s", existingUser.ID, err)

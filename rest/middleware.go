@@ -40,7 +40,7 @@ func (c *Context) authMiddleware(next http.Handler) http.Handler {
 		if kid == c.JWTKeysKID { // local auth token
 			tokenToParse = tokenString
 		} else {
-			for _, oauth2Data := range c.OIDCStore.OAuth2Data {
+			for _, oauth2Data := range c.OIDCStore.GetOAuth2DataCopy() {
 				if oauth2Data.Token.AccessToken == tokenString {
 					tokenToParse = oauth2Data.Token.IDToken
 				}

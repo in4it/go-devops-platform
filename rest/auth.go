@@ -35,8 +35,8 @@ func (c *Context) authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check login attempts
-	tooManyLogins := login.CheckTooManyLogins(c.LoginAttempts, loginReq.Login)
+	// check login attempts, and record this attempt (cleared again on success)
+	tooManyLogins := login.CheckAndRecordAttempt(c.LoginAttempts, loginReq.Login)
 	if tooManyLogins {
 		c.returnError(w, fmt.Errorf("too many login failures, try again later"), http.StatusTooManyRequests)
 		return
@@ -53,6 +53,8 @@ func (c *Context) authHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if loginResponse.MFARequired {
+		// password was correct, the attempt only counts once the MFA code is sent
+		login.UndoAttempt(c.LoginAttempts, loginReq.Login)
 		c.write(w, out) // status ok, but unauthorized, because we need a second call with MFA code
 		return
 	} else if loginResponse.Authenticated {
@@ -64,8 +66,7 @@ func (c *Context) authHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		c.write(w, out)
 	} else {
-		// log login attempts
-		login.RecordAttempt(c.LoginAttempts, loginReq.Login)
+		// failed attempt was already recorded by CheckAndRecordAttempt
 		// return Unauthorized
 		c.writeWithStatus(w, out, http.StatusUnauthorized)
 	}
@@ -220,6 +221,13 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 
 			if user.Suspended {
 				loginResponse.Suspended = true
+				out, err := json.Marshal(loginResponse)
+				if err != nil {
+					c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
+					return
+				}
+				c.write(w, out)
+				return
 			}
 
 			token, err := login.GetJWTTokenWithExpiration(user.Login, user.Role, c.JWTKeys.PrivateKey, c.JWTKeysKID, samlSession.ExpiresAt)
@@ -250,7 +258,7 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 				if r.PathValue("id") == oidcProvider.ID && oidcCallback.Code != "" { // we got the code back
 					oidcstore.RetrieveTokenLock.Lock()
 					defer oidcstore.RetrieveTokenLock.Unlock()
-					oauth2data, err := oidc.RetrieveOAUth2DataUsingState(c.OIDCStore.OAuth2Data, oidcCallback.State) // get the oauth2 struct based on the state (key)
+					oauth2data, err := oidc.RetrieveOAUth2DataUsingState(c.OIDCStore.GetOAuth2DataCopy(), oidcCallback.State) // get the oauth2 struct based on the state (key)
 					if err != nil {
 						c.returnError(w, fmt.Errorf("cannot find oauth2 data using state provided: %s", err), http.StatusBadRequest)
 						return

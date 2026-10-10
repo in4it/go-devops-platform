@@ -54,6 +54,14 @@ func newContextWithParams(storage storage.Iface, serverType string, userStore *u
 	c.LicenseUserCount = licenseUserCount
 	c.CloudType = cloudType
 
+	c.UserStore = userStore
+
+	c.OIDCRenewal, err = oidcrenewal.NewRenewal(storage, c.TokenRenewalTimeMinutes, c.LogLevel, c.EnableOIDCTokenRenewal, c.OIDCStore, c.OIDCProviders, c.UserStore)
+	if err != nil {
+		return c, fmt.Errorf("oidcrenewal init error: %s", err)
+	}
+
+	// started after NewRenewal, which sets the log level
 	go func() { // run license refresh
 		logging.DebugLog(fmt.Errorf("starting license refresh in background (current licenses: %d, cloud type: %s)", c.LicenseUserCount, c.CloudType))
 		for {
@@ -65,13 +73,6 @@ func newContextWithParams(storage storage.Iface, serverType string, userStore *u
 			}
 		}
 	}()
-
-	c.UserStore = userStore
-
-	c.OIDCRenewal, err = oidcrenewal.NewRenewal(storage, c.TokenRenewalTimeMinutes, c.LogLevel, c.EnableOIDCTokenRenewal, c.OIDCStore, c.OIDCProviders, c.UserStore)
-	if err != nil {
-		return c, fmt.Errorf("oidcrenewal init error: %s", err)
-	}
 
 	if c.LoginAttempts == nil {
 		c.LoginAttempts = make(login.Attempts)

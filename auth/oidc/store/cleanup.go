@@ -9,7 +9,7 @@ import (
 
 func (store *Store) CleanupOAuth2DataForAllEntries() int {
 	deleted := 0
-	for _, oauthData := range store.OAuth2Data {
+	for _, oauthData := range store.GetOAuth2DataCopy() {
 		deleted += store.CleanupOAuth2Data(oauthData)
 	}
 	return deleted

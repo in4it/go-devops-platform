@@ -21,7 +21,6 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/in4it/go-devops-platform/auth/oidc"
 	"github.com/in4it/go-devops-platform/auth/saml"
-	"github.com/in4it/go-devops-platform/logging"
 	"github.com/in4it/go-devops-platform/rest/login"
 	memorystorage "github.com/in4it/go-devops-platform/storage/memory"
 	"github.com/in4it/go-devops-platform/users"
@@ -707,7 +706,6 @@ func TestOIDCFlow(t *testing.T) {
 	}
 	c.Hostname = "example.inv"
 	c.Protocol = "http"
-	logging.Loglevel = 17
 
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		code := "thisisthecode"
@@ -974,7 +972,6 @@ func TestOIDCRedirect(t *testing.T) {
 	}
 	c.Hostname = "example.inv"
 	c.Protocol = "http"
-	logging.Loglevel = 17
 
 	ts := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		code := "thisisthecode"

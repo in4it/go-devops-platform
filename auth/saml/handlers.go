@@ -47,13 +47,14 @@ func (s *saml) samlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := s.serviceProvider[providerID]; !ok {
+	sp, ok := s.getServiceProvider(providerID)
+	if !ok {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte("saml error: can't find provider with specified id\n"))
 		return
 	}
 
-	assertionInfo, err := s.serviceProvider[providerID].RetrieveAssertionInfo(r.FormValue("SAMLResponse"))
+	assertionInfo, err := sp.RetrieveAssertionInfo(r.FormValue("SAMLResponse"))
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		w.Write([]byte(fmt.Sprintf("saml error: %s\n", err)))

@@ -30,7 +30,7 @@ func (r *Renewal) Worker() {
 				log.Printf("Renewal Worker: [warning] couldn't save oidc store after cleanup: %s", err)
 			}
 		}
-		for key, oauth2Data := range r.oidcStore.OAuth2Data {
+		for key, oauth2Data := range r.oidcStore.GetOAuth2DataCopy() {
 			logging.DebugLog(fmt.Errorf("running canRenew of %s", oauth2Data.ID))
 			// can we renew? Do we have expiration date and it is expired?
 			canRenew, oidcProvider, discovery, err := canRenew(r.renewalTime, oauth2Data, r.oidcStore, r.oidcProviders)
