@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -372,5 +373,40 @@ func TestOIDCProviderClientSecretNotReturned(t *testing.T) {
 	}
 	if c.OIDCProviders[0].ClientSecret != "supersecret" {
 		t.Fatalf("listing removed the stored client secret")
+	}
+}
+
+// TestSCIMTokenKeptAfterRestart: the saved SCIM token keeps working when the
+// server starts with a new scim instance (restart / upgrade).
+func TestSCIMTokenKeptAfterRestart(t *testing.T) {
+	storage := &memorystorage.MockMemoryStorage{}
+	userStore, err := users.NewUserStore(storage, 100)
+	if err != nil {
+		t.Fatalf("userstore error: %s", err)
+	}
+	c, err := newContextWithParams(storage, SERVER_TYPE_VPN, userStore, scim.New(storage, userStore, ""), 100, "", map[string]AppClient{})
+	if err != nil {
+		t.Fatalf("cannot create context: %s", err)
+	}
+	c.SetupCompleted = true
+	c.SCIM.EnableSCIM = true
+	c.SCIM.Token = "saved-scim-token"
+	c.SCIM.Client.UpdateToken(c.SCIM.Token)
+	if err := SaveConfig(c); err != nil {
+		t.Fatalf("save config error: %s", err)
+	}
+
+	// restart: new context from the saved config, with a new scim instance without token
+	restarted, err := newContextWithParams(storage, SERVER_TYPE_VPN, userStore, scim.New(storage, userStore, ""), 100, "", map[string]AppClient{})
+	if err != nil {
+		t.Fatalf("cannot create context: %s", err)
+	}
+	mux := restarted.getRouter(fstest.MapFS{}, []byte("<html></html>"))
+	req := httptest.NewRequest(http.MethodGet, "http://example.com/api/scim/v2/Users", nil)
+	req.Header.Set("Authorization", "Bearer saved-scim-token")
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Result().StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 with the saved scim token after restart, got %d: %s", w.Result().StatusCode, w.Body.String())
 	}
 }
