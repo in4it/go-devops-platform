@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/mail"
 	"net/url"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/go-jose/go-jose/v4"
@@ -101,6 +103,10 @@ func UpdateOAuth2DataWithToken(jwks Jwks, discovery Discovery, clientID, clientS
 	if !ok {
 		return newOAuthData, fmt.Errorf("issuer missing from id token")
 	}
+	err = validateIDTokenClaims(claims, discovery, clientID)
+	if err != nil {
+		return newOAuthData, err
+	}
 
 	newOAuthData.Token = token
 	newOAuthData.LastTokenRenewal = renewalTime
@@ -132,4 +138,46 @@ func GetPublicKeyForToken(allJwks []Jwks, discoveryProviders []Discovery, token 
 		}
 	}
 	return nil, fmt.Errorf("no matching kid found for token")
+}
+
+// validateIDTokenClaims checks the audience, issuer and email_verified claims of
+// an id token
+func validateIDTokenClaims(claims jwt.MapClaims, discovery Discovery, clientID string) error {
+	audience, err := claims.GetAudience()
+	if err != nil {
+		return fmt.Errorf("invalid audience in id token: %s", err)
+	}
+	if !slices.Contains(audience, clientID) {
+		return fmt.Errorf("id token audience doesn't contain the client id")
+	}
+	issuer, ok := claims["iss"].(string)
+	if !ok {
+		return fmt.Errorf("issuer in id token is not a string")
+	}
+	if discovery.Issuer != "" {
+		expectedIssuer := discovery.Issuer
+		// multi-tenant discovery documents (e.g. Microsoft Entra ID's common endpoint) use a {tenantid} placeholder
+		if strings.Contains(expectedIssuer, "{tenantid}") {
+			if tenantID, ok := claims["tid"].(string); ok && tenantID != "" {
+				expectedIssuer = strings.ReplaceAll(expectedIssuer, "{tenantid}", tenantID)
+			}
+		}
+		if issuer != expectedIssuer {
+			return fmt.Errorf("id token issuer doesn't match the issuer of the oidc provider")
+		}
+	}
+	// only reject when the IdP explicitly says the email address is not verified
+	if emailVerified, ok := claims["email_verified"]; ok {
+		verified := true
+		switch v := emailVerified.(type) {
+		case bool:
+			verified = v
+		case string:
+			verified = !strings.EqualFold(v, "false")
+		}
+		if !verified {
+			return fmt.Errorf("email address in id token is not verified")
+		}
+	}
+	return nil
 }

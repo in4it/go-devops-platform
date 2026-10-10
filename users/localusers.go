@@ -2,6 +2,7 @@ package users
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,11 +44,13 @@ func (u *UserStore) AddUsers(users []User) ([]User, error) {
 			}
 		}
 		users[k].ID = uuid.NewString()
-		hashedPassword, err := HashPassword(users[k].Password)
-		if err != nil {
-			return createdUsers, fmt.Errorf("HashPassword error: %s", err)
+		if users[k].Password != "" {
+			hashedPassword, err := HashPassword(users[k].Password)
+			if err != nil {
+				return createdUsers, fmt.Errorf("HashPassword error: %s", err)
+			}
+			users[k].Password = hashedPassword
 		}
-		users[k].Password = hashedPassword
 		u.Users = append(u.Users, users[k])
 		existingUsers = append(existingUsers, users[k])
 		createdUsers = append(createdUsers, users[k])
@@ -103,16 +106,56 @@ func (u *UserStore) DeleteUserByID(id string) error {
 	return fmt.Errorf("User not found")
 }
 
+// compareHashAndPassword can be replaced in tests
+var compareHashAndPassword = bcrypt.CompareHashAndPassword
+
+var (
+	dummyHashOnce sync.Once
+	dummyHash     []byte
+)
+
+// getDummyHash returns a bcrypt hash (at the current cost) that is used to compare
+// against when the login doesn't exist, so that the response time doesn't reveal
+// whether a user exists.
+func getDummyHash() []byte {
+	dummyHashOnce.Do(func() {
+		hash, err := bcrypt.GenerateFromPassword([]byte(uuid.NewString()), passwordHashCost)
+		if err != nil {
+			panic(fmt.Sprintf("could not generate dummy bcrypt hash: %s", err))
+		}
+		dummyHash = hash
+	})
+	return dummyHash
+}
+
 func (u *UserStore) AuthUser(login, password string) (User, bool) {
-	for _, user := range u.Users {
+	userIndex := -1
+	for k, user := range u.Users {
 		if user.Login == login {
-			passwordMatch := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
-			if passwordMatch == nil {
-				return user, true
+			userIndex = k
+			break
+		}
+	}
+	if userIndex == -1 || u.Users[userIndex].Password == "" {
+		// always run bcrypt, so that timing is similar for unknown users / users without password
+		compareHashAndPassword(getDummyHash(), []byte(password))
+		return User{}, false
+	}
+	user := u.Users[userIndex]
+	if compareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
+		return User{}, false
+	}
+	// upgrade hashes created with a lower cost
+	if cost, err := bcrypt.Cost([]byte(user.Password)); err == nil && cost < passwordHashCost {
+		if hashedPassword, err := HashPassword(password); err == nil {
+			u.Users[userIndex].Password = hashedPassword
+			user.Password = hashedPassword
+			if u.autoSave {
+				_ = u.SaveUsers() // login still succeeds if the upgraded hash can't be saved
 			}
 		}
 	}
-	return User{}, false
+	return user, true
 }
 
 func (u *UserStore) LoginExists(login string) bool {
@@ -138,6 +181,32 @@ func (u *UserStore) UpdateUser(user User) error {
 	}
 	return fmt.Errorf("user not found in database: %s", user.Login)
 }
+
+// UpdateUserByID updates the user with the given ID (the login can be changed). The password is kept.
+func (u *UserStore) UpdateUserByID(user User) error {
+	if user.ID == "" {
+		return fmt.Errorf("user id cannot be empty")
+	}
+	if user.Login == "" {
+		return fmt.Errorf("login cannot be empty")
+	}
+	for _, existingUser := range u.Users {
+		if existingUser.ID != user.ID && existingUser.Login == user.Login {
+			return fmt.Errorf("user with login '%s' already exists", user.Login)
+		}
+	}
+	for k, existingUser := range u.Users {
+		if existingUser.ID == user.ID {
+			user.Password = existingUser.Password // we keep the password
+			u.Users[k] = user
+			if u.autoSave {
+				return u.SaveUsers()
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("user not found in database: userID %s", user.ID)
+}
 func (u *UserStore) UpdatePassword(userID string, password string) error {
 	for k, existingUser := range u.Users {
 		if existingUser.ID == userID {
@@ -159,8 +228,10 @@ func (u *UserStore) UpdatePassword(userID string, password string) error {
 	return fmt.Errorf("user not found in database: userID %s", userID)
 }
 
+const passwordHashCost = bcrypt.DefaultCost
+
 func HashPassword(password string) (string, error) {
-	adminPasswordHashed, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.MinCost)
+	adminPasswordHashed, err := bcrypt.GenerateFromPassword([]byte(password), passwordHashCost)
 	if err != nil {
 		return "", fmt.Errorf("unable to set password: %s", err)
 	}

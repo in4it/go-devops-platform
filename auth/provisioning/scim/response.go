@@ -7,12 +7,20 @@ import (
 	"github.com/in4it/go-devops-platform/users"
 )
 
+// listUserResponse returns a SCIM ListResponse. start is the 1-based startIndex (RFC 7644 section 3.4.2.4),
+// values < 1 are interpreted as 1. count is the maximum number of resources to return, -1 (or any negative value)
+// means no limit; callers must map a negative count from the request to 0.
 func listUserResponse(users []users.User, attributes string, count, start int) ([]byte, error) {
-	if start != -1 && start > 1 && start <= len(users) {
-		users = users[start:]
-	}
 	totalResults := len(users)
-	if len(users) > count && count != -1 {
+	if start < 1 {
+		start = 1
+	}
+	if start > len(users) {
+		users = users[:0]
+	} else {
+		users = users[start-1:]
+	}
+	if count >= 0 && len(users) > count {
 		users = users[0:count]
 	}
 	response := UserResponse{

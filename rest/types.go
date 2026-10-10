@@ -98,6 +98,11 @@ type SAMLCallback struct {
 	RedirectURI string `json:"redirectURI"`
 }
 
+type ProfilePasswordRequest struct {
+	Password        string `json:"password"`
+	CurrentPassword string `json:"currentPassword"`
+}
+
 type UserInfoResponse struct {
 	Login    string `json:"login"`
 	Role     string `json:"role"`

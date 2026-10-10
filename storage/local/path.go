@@ -13,7 +13,11 @@ import (
 )
 
 func (l *LocalStorage) FileExists(filename string) bool {
-	if _, err := os.Stat(path.Join(l.path, filename)); errors.Is(err, os.ErrNotExist) {
+	fullPath, err := l.fullPath(filename)
+	if err != nil {
+		return false
+	}
+	if _, err := os.Stat(fullPath); errors.Is(err, os.ErrNotExist) {
 		return false
 	}
 	return true
@@ -28,7 +32,10 @@ func (l *LocalStorage) GetPath() string {
 }
 
 func (l *LocalStorage) EnsurePath(pathname string) error {
-	fullPathname := path.Join(l.path, pathname)
+	fullPathname, err := l.fullPath(pathname)
+	if err != nil {
+		return err
+	}
 	if _, err := os.Stat(fullPathname); errors.Is(err, os.ErrNotExist) {
 		err := os.Mkdir(fullPathname, 0700)
 		if err != nil {
@@ -39,6 +46,10 @@ func (l *LocalStorage) EnsurePath(pathname string) error {
 }
 
 func (l *LocalStorage) EnsureOwnership(filename, login string) error {
+	fullPath, err := l.fullPath(filename)
+	if err != nil {
+		return err
+	}
 	currentUser, err := user.Current()
 	if err != nil {
 		return fmt.Errorf("could not get current user: %s", err)
@@ -59,8 +70,7 @@ func (l *LocalStorage) EnsureOwnership(filename, login string) error {
 	if err != nil {
 		return fmt.Errorf("user lookup error (gid): %s", err)
 	}
-
-	err = os.Chown(path.Join(l.path, filename), vpnUserUid, vpnUserGid)
+	err = os.Chown(fullPath, vpnUserUid, vpnUserGid)
 	if err != nil {
 		return fmt.Errorf("vpn chown error: %s", err)
 	}
@@ -68,7 +78,11 @@ func (l *LocalStorage) EnsureOwnership(filename, login string) error {
 }
 
 func (l *LocalStorage) ReadDir(pathname string) ([]string, error) {
-	res, err := os.ReadDir(path.Join(l.path, pathname))
+	fullPath, err := l.fullPath(pathname)
+	if err != nil {
+		return []string{}, err
+	}
+	res, err := os.ReadDir(fullPath)
 	if err != nil {
 		return []string{}, err
 	}
@@ -80,17 +94,37 @@ func (l *LocalStorage) ReadDir(pathname string) ([]string, error) {
 }
 
 func (l *LocalStorage) Remove(name string) error {
-	return os.Remove(path.Join(l.path, name))
+	fullPath, err := l.fullPath(name)
+	if err != nil {
+		return err
+	}
+	return os.Remove(fullPath)
 }
 
 func (l *LocalStorage) Rename(oldName, newName string) error {
-	return os.Rename(path.Join(l.path, oldName), path.Join(l.path, newName))
+	oldPath, err := l.fullPath(oldName)
+	if err != nil {
+		return err
+	}
+	newPath, err := l.fullPath(newName)
+	if err != nil {
+		return err
+	}
+	return os.Rename(oldPath, newPath)
 }
 
 func (l *LocalStorage) EnsurePermissions(name string, mode fs.FileMode) error {
-	return os.Chmod(path.Join(l.path, name), mode)
+	fullPath, err := l.fullPath(name)
+	if err != nil {
+		return err
+	}
+	return os.Chmod(fullPath, mode)
 }
 
 func (l *LocalStorage) FileInfo(name string) (fs.FileInfo, error) {
-	return os.Stat(name)
+	fullPath, err := l.fullPath(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.Stat(fullPath)
 }

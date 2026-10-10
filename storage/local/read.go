@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 )
 
 func (l *LocalStorage) ReadFile(name string) ([]byte, error) {
-	return os.ReadFile(path.Join(l.path, name))
+	fullPath, err := l.fullPath(name)
+	if err != nil {
+		return nil, err
+	}
+	return os.ReadFile(fullPath)
 }
 
 func (l *LocalStorage) OpenFilesFromPos(names []string, pos int64) ([]io.ReadCloser, error) {
@@ -17,7 +20,11 @@ func (l *LocalStorage) OpenFilesFromPos(names []string, pos int64) ([]io.ReadClo
 		return readers, nil
 	}
 	for _, name := range names {
-		file, err := os.Open(path.Join(l.path, name))
+		fullPath, err := l.fullPath(name)
+		if err != nil {
+			return nil, err
+		}
+		file, err := os.Open(fullPath)
 		if err != nil {
 			return nil, fmt.Errorf("cannot open file (%s): %s", name, err)
 		}
@@ -40,7 +47,11 @@ func (l *LocalStorage) OpenFilesFromPos(names []string, pos int64) ([]io.ReadClo
 }
 
 func (l *LocalStorage) OpenFile(name string) (io.ReadCloser, error) {
-	file, err := os.Open(path.Join(l.path, name))
+	fullPath, err := l.fullPath(name)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(fullPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open file (%s): %s", name, err)
 	}

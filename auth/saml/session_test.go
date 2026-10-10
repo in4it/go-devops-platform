@@ -13,7 +13,7 @@ import (
 // sessions while the ACS handler creates them.
 func TestSessionsConcurrentAccess(t *testing.T) {
 	s := &saml{
-		sessions:        make(map[SessionKey]AuthenticatedUser),
+		sessions:        make(map[SessionKey]session),
 		serviceProvider: make(map[string]*saml2.SAMLServiceProvider),
 	}
 	provider := Provider{ID: "prov-1"}

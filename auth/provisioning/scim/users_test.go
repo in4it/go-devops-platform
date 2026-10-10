@@ -116,7 +116,7 @@ func TestUsersGetCount10Start5(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not decode output: %s", err)
 	}
-	if userResponse.TotalResults != totalUserCount-start {
+	if userResponse.TotalResults != totalUserCount {
 		t.Fatalf("Wrong user count: %d", userResponse.TotalResults)
 	}
 	if userResponse.ItemsPerPage != count {
@@ -128,8 +128,8 @@ func TestUsersGetCount10Start5(t *testing.T) {
 	if len(userResponse.Resources) != count {
 		t.Fatalf("Wrong response count: %d", len(userResponse.Resources))
 	}
-	if userResponse.Resources[0].UserName != users[5].Login {
-		t.Fatalf("Wrong first login: %s (actual) vs %s (expected)", userResponse.Resources[0].UserName, users[5].Login)
+	if userResponse.Resources[0].UserName != users[start-1].Login { // startIndex is 1-based
+		t.Fatalf("Wrong first login: %s (actual) vs %s (expected)", userResponse.Resources[0].UserName, users[start-1].Login)
 	}
 }
 

@@ -164,7 +164,7 @@ func TestProfilePasswordHandlerStampsPasswordChangedAt(t *testing.T) {
 		t.Fatalf("cannot create user: %s", err)
 	}
 
-	payload, err := json.Marshal(users.User{Password: "newpass1!"})
+	payload, err := json.Marshal(ProfilePasswordRequest{Password: "newpass1!", CurrentPassword: "mypass"})
 	if err != nil {
 		t.Fatalf("marshal error: %s", err)
 	}

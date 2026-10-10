@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -80,6 +81,7 @@ func (c *Context) oidcProviderHandler(w http.ResponseWriter, r *http.Request) {
 		for k := range oidcProviders {
 			oidcProviders[k].LoginURL = fmt.Sprintf("%s://%s%s", c.Protocol, c.Hostname, strings.Replace(oidcProviders[k].RedirectURI, "/callback/", "/login/", -1))
 			oidcProviders[k].RedirectURI = fmt.Sprintf("%s://%s%s", c.Protocol, c.Hostname, oidcProviders[k].RedirectURI)
+			oidcProviders[k].ClientSecret = "" // never return the client secret
 		}
 		out, err := json.Marshal(oidcProviders)
 		if err != nil {
@@ -118,7 +120,9 @@ func (c *Context) oidcProviderHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		oidcProvider.RedirectURI = "/callback/oidc/" + oidcProvider.ID
 		c.OIDCProviders = append(c.OIDCProviders, oidcProvider)
-		out, err := json.Marshal(oidcProvider)
+		oidcProviderResponse := oidcProvider
+		oidcProviderResponse.ClientSecret = "" // never return the client secret
+		out, err := json.Marshal(oidcProviderResponse)
 		if err != nil {
 			c.returnError(w, fmt.Errorf("oidcProvider marshal error: %s", err), http.StatusBadRequest)
 			return
@@ -206,14 +210,25 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			samlSession, err := c.SAML.Client.GetAuthenticatedUser(samlProvider, samlCallback.Code)
+			// the code can only be redeemed once
+			samlSession, err := c.SAML.Client.ConsumeAuthenticatedUser(samlProvider, samlCallback.Code)
 			if err != nil {
 				c.returnError(w, fmt.Errorf("saml session not found"), http.StatusBadRequest)
 				return
 			}
 
 			// add user to the user database (or modify existing one)
-			user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, samlSession.Login, "saml", samlSession.ID)
+			user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, samlSession.Login, "saml", samlSession.ID)
+			if errors.Is(err, errNoLicense) {
+				loginResponse.NoLicense = true
+				out, err := json.Marshal(loginResponse)
+				if err != nil {
+					c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
+					return
+				}
+				c.write(w, out)
+				return
+			}
 			if err != nil {
 				c.returnError(w, fmt.Errorf("couldn't add/modify user in database: %s", err), http.StatusBadRequest)
 				return
@@ -230,7 +245,12 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			token, err := login.GetJWTTokenWithExpiration(user.Login, user.Role, c.JWTKeys.PrivateKey, c.JWTKeysKID, samlSession.ExpiresAt)
+			// don't issue tokens that live longer than local tokens
+			expiresAt := samlSession.ExpiresAt
+			if maxExpiresAt := time.Now().Add(login.MAX_TOKEN_LIFETIME); expiresAt.After(maxExpiresAt) {
+				expiresAt = maxExpiresAt
+			}
+			token, err := login.GetJWTTokenWithExpiration(user.Login, user.Role, c.JWTKeys.PrivateKey, c.JWTKeysKID, expiresAt)
 			if err != nil {
 				c.returnError(w, fmt.Errorf("token generation failed: %s", err), http.StatusBadRequest)
 				return
@@ -263,21 +283,13 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 						c.returnError(w, fmt.Errorf("cannot find oauth2 data using state provided: %s", err), http.StatusBadRequest)
 						return
 					}
+					if oauth2data.OIDCProviderID != oidcProvider.ID {
+						c.returnError(w, fmt.Errorf("state doesn't belong to this oidc provider"), http.StatusBadRequest)
+						return
+					}
 					if oauth2data.Token.AccessToken != "" {
-						if oauth2data.Suspended {
-							loginResponse.Suspended = true
-						} else if c.LicenseUserCount >= c.UserStore.UserCount() {
-							loginResponse.NoLicense = true
-						} else {
-							loginResponse.Authenticated = true
-							loginResponse.Token = oauth2data.Token.AccessToken
-						}
-						out, err := json.Marshal(loginResponse)
-						if err != nil {
-							c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
-							return
-						}
-						c.write(w, out)
+						// states are single-use: the code was already exchanged for a token
+						c.returnError(w, fmt.Errorf("state already used, login again"), http.StatusBadRequest)
 						return
 					}
 					// no token, let's generate a new one
@@ -297,7 +309,17 @@ func (c *Context) authMethodsByID(w http.ResponseWriter, r *http.Request) {
 						return
 					}
 					// add user to the user database (or modify existing one)
-					user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, updatedOauth2data.UserInfo.Email, "oidc", updatedOauth2data.ID)
+					user, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, updatedOauth2data.UserInfo.Email, "oidc", updatedOauth2data.ID)
+					if errors.Is(err, errNoLicense) {
+						loginResponse.NoLicense = true
+						out, err := json.Marshal(loginResponse)
+						if err != nil {
+							c.returnError(w, fmt.Errorf("loginResponse Marshal error: %s", err), http.StatusBadRequest)
+							return
+						}
+						c.write(w, out)
+						return
+					}
 					if err != nil {
 						c.returnError(w, fmt.Errorf("couldn't add/modify user in database: %s", err), http.StatusBadRequest)
 						return
