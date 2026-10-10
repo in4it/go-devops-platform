@@ -3,8 +3,6 @@ package saml
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 func (s *saml) samlHandler(w http.ResponseWriter, r *http.Request) {
@@ -73,24 +71,12 @@ func (s *saml) samlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	login := assertionInfo.NameID
-	notAfter := *assertionInfo.SessionNotOnOrAfter
-
-	randomString, err := getRandomString(128)
+	sessionID, err := s.createSessionFromAssertion(providerID, assertionInfo)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(fmt.Sprintf("saml error: could not create session: %s\n", err)))
+		w.Write([]byte(fmt.Sprintf("saml error: %s\n", err)))
 		return
 	}
-	sessionKey := SessionKey{
-		ProviderID: providerID,
-		SessionID:  randomString,
-	}
-	s.CreateSession(sessionKey, AuthenticatedUser{
-		ID:        uuid.New().String(),
-		Login:     login,
-		ExpiresAt: notAfter,
-	})
-	w.Header().Add("Location", fmt.Sprintf("/callback/saml/%s?code=%s", providerID, sessionKey.SessionID))
+	w.Header().Add("Location", fmt.Sprintf("/callback/saml/%s?code=%s", providerID, sessionID))
 	w.WriteHeader(http.StatusFound)
 }

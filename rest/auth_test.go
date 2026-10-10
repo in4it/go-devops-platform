@@ -794,7 +794,8 @@ func TestOIDCFlow(t *testing.T) {
 					return
 				}
 				token := jwt.NewWithClaims(jwt.GetSigningMethod("RS256"), jwt.MapClaims{
-					"iss":   "test-server",
+					"iss":   "test-issuer",
+					"aud":   oidcProvider.ClientID,
 					"sub":   "john",
 					"email": "john@example.inv",
 					"role":  "user",
@@ -940,6 +941,19 @@ func TestOIDCFlow(t *testing.T) {
 	}
 	if loginResponse.Token == "" {
 		t.Fatalf("no token received: %+v", loginResponse)
+	}
+
+	// the state is single-use: a second callback must not return a token
+	req = httptest.NewRequest("POST", "http://example.inv/api/authmethods/oidc/"+oidcProvider.ID, bytes.NewBuffer(callbackPayload))
+	req.SetPathValue("id", oidcProvider.ID)
+	req.SetPathValue("method", "oidc")
+	w = httptest.NewRecorder()
+	c.authMethodsByID(w, req)
+	if w.Result().StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400 for second callback with the same state, got %d", w.Result().StatusCode)
+	}
+	if strings.Contains(w.Body.String(), loginResponse.Token) {
+		t.Fatalf("token returned for second callback with the same state")
 	}
 }
 

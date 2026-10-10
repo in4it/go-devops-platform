@@ -121,3 +121,51 @@ func TestAuthenticateMFAWithToken(t *testing.T) {
 		t.Fatalf("expected to be authenticated")
 	}
 }
+
+func TestAuthenticateMFAReplay(t *testing.T) {
+	secret := base32.StdEncoding.EncodeToString([]byte("replaysecret"))
+	m := MockAuth{
+		AuthUserUser: users.User{
+			Login: "john",
+			Factors: []users.Factor{
+				{
+					Name:   "test-factor",
+					Type:   "test",
+					Secret: secret,
+				},
+			},
+		},
+		AuthUserResult: true,
+	}
+	token, err := totp.GetToken(secret, time.Now().Unix()/30)
+	if err != nil {
+		t.Fatalf("GetToken error: %s", err)
+	}
+	loginReq := LoginRequest{
+		Login:    "john",
+		Password: "mypass",
+		FactorResponse: FactorResponse{
+			Name: "test-factor",
+			Code: token,
+		},
+	}
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("private key error: %s", err)
+	}
+
+	loginResp, _, err := Authenticate(loginReq, &m, privateKey, "jwtKeyID")
+	if err != nil {
+		t.Fatalf("authentication error: %s", err)
+	}
+	if !loginResp.Authenticated {
+		t.Fatalf("expected to be authenticated")
+	}
+	loginResp, _, err = Authenticate(loginReq, &m, privateKey, "jwtKeyID")
+	if err != nil {
+		t.Fatalf("authentication error: %s", err)
+	}
+	if loginResp.Authenticated {
+		t.Fatalf("expected replayed MFA code to be rejected")
+	}
+}

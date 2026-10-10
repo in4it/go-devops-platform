@@ -3,6 +3,7 @@ package oidcstore
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/in4it/go-devops-platform/auth/oidc"
 )
@@ -24,6 +25,10 @@ func (store *Store) SaveOIDCStore() error {
 
 func (store *Store) SaveOAuth2Data(oauth2Data oidc.OAuthData, key string) error {
 	store.Mu.Lock()
+	if _, exists := store.OAuth2Data[key]; !exists && oauth2Data.Token.AccessToken == "" {
+		// new login started: make sure pending states can't grow without bound
+		store.prunePendingStates(time.Now())
+	}
 	store.OAuth2Data[key] = oauth2Data
 	store.Mu.Unlock()
 	return store.SaveOIDCStore()

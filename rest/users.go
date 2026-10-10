@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -236,11 +237,22 @@ func (c *Context) userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, login, authType, externalAuthID string) (users.User, error) {
+// errNoLicense is returned when a new user can't be added because the user
+// license limit has been reached
+var errNoLicense = errors.New("no more licenses available")
+
+func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, licenseUserCount int, login, authType, externalAuthID string) (users.User, error) {
 	if userStore.LoginExists(login) {
 		existingUser, err := userStore.GetUserByLogin(login)
 		if err != nil {
 			return existingUser, fmt.Errorf("couldn't find existing user in database: %s", login)
+		}
+		// don't link a login to a user that is bound to another type of external auth
+		if authType == "oidc" && existingUser.SAMLID != "" {
+			return users.User{}, fmt.Errorf("user %s is linked to a saml login, can't login with oidc", login)
+		}
+		if authType == "saml" && existingUser.OIDCID != "" {
+			return users.User{}, fmt.Errorf("user %s is linked to an oidc login, can't login with saml", login)
 		}
 
 		if authType == "oidc" {
@@ -267,6 +279,9 @@ func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, 
 		}
 		return existingUser, nil
 	} else {
+		if userStore.UserCount() >= licenseUserCount {
+			return users.User{}, errNoLicense
+		}
 		newUser := users.User{
 			Login: login,
 			Role:  "user",
@@ -295,10 +310,13 @@ func (c *Context) userinfoHandler(w http.ResponseWriter, r *http.Request) {
 
 	response.Login = user.Login
 	response.Role = user.Role
-	if user.OIDCID == "" {
-		response.UserType = "local"
-	} else {
+	switch {
+	case user.SAMLID != "":
+		response.UserType = "saml"
+	case user.OIDCID != "":
 		response.UserType = "oidc"
+	default:
+		response.UserType = "local"
 	}
 
 	out, err := json.Marshal(response)

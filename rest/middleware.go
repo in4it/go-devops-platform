@@ -118,7 +118,8 @@ func (c *Context) loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		wrappedResponse := &responseWriter{ResponseWriter: w}
 		next.ServeHTTP(wrappedResponse, r)
-		log.Printf("req=%s res=%d method=%s src=%s duration=%s", r.RequestURI, wrappedResponse.status, r.Method, r.RemoteAddr, time.Since(start))
+		// log the path only: query strings can contain secrets (saml code, oidc code & state)
+		log.Printf("req=%s res=%d method=%s src=%s duration=%s", r.URL.EscapedPath(), wrappedResponse.status, r.Method, r.RemoteAddr, time.Since(start))
 	})
 }
 

@@ -23,11 +23,13 @@ type Provider struct {
 type saml struct {
 	Providers       *[]Provider
 	serviceProvider map[string]*saml2.SAMLServiceProvider
-	sessions        map[SessionKey]AuthenticatedUser
-	hostname        *string
-	protocol        *string
-	mu              sync.Mutex
-	storage         storage.Iface
+	sessions        map[SessionKey]session
+	// consumed assertion ids (providerID/assertionID) and until when they're kept
+	consumedAssertions map[string]time.Time
+	hostname           *string
+	protocol           *string
+	mu                 sync.Mutex
+	storage            storage.Iface
 }
 type AuthenticatedUser struct {
 	ID        string
@@ -43,6 +45,7 @@ type Iface interface {
 	GetAuthURL(provider Provider) (string, error)
 	GetRouter() *http.ServeMux
 	GetAuthenticatedUser(provider Provider, sessionID string) (AuthenticatedUser, error)
+	ConsumeAuthenticatedUser(provider Provider, sessionID string) (AuthenticatedUser, error)
 	HasValidMetadataURL(metadataURL string) (bool, error)
 	CreateSession(key SessionKey, value AuthenticatedUser)
 }

@@ -46,11 +46,13 @@ func (s *Scim) GetUsersHandler(w http.ResponseWriter, r *http.Request) {
 	filter := r.URL.Query().Get("filter")
 	count, err := strconv.Atoi(r.URL.Query().Get("count"))
 	if err != nil {
-		count = -1
+		count = -1 // not specified: no limit
+	} else if count < 0 {
+		count = 0 // RFC 7644: a negative value SHALL be interpreted as 0
 	}
 	start, err := strconv.Atoi(r.URL.Query().Get("startIndex"))
-	if err != nil {
-		start = 1
+	if err != nil || start < 1 {
+		start = 1 // RFC 7644: a value less than 1 SHALL be interpreted as 1
 	}
 
 	if filter != "" {
@@ -101,14 +103,24 @@ func (s *Scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !putUserRequest.Active && !user.Suspended { // user is suspended
+	// validate before running any hooks
+	username := getUsername(putUserRequest)
+	if username != "" && user.Login != username {
+		if s.UserStore.LoginExists(username) {
+			returnError(w, fmt.Errorf("user with login %s already exists", username), http.StatusConflict)
+			return
+		}
+		user.Login = username
+	}
+
+	if !putUserRequest.Active && !user.Suspended && s.UserStore.UserHooks.DisableFunc != nil { // user is suspended
 		err = s.UserStore.UserHooks.DisableFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
 			return
 		}
 	}
-	if putUserRequest.Active && user.Suspended { // user is unsuspended
+	if putUserRequest.Active && user.Suspended && s.UserStore.UserHooks.ReactivateFunc != nil { // user is unsuspended
 		err := s.UserStore.UserHooks.ReactivateFunc(s.storage, user)
 		if err != nil {
 			returnError(w, fmt.Errorf("could not reactivate all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
@@ -117,14 +129,8 @@ func (s *Scim) PutUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.Suspended = !putUserRequest.Active
-	username := getUsername(putUserRequest)
-	if user.Login != username {
-		if !s.UserStore.LoginExists(username) {
-			user.Login = username
-		}
-	}
 
-	err = s.UserStore.UpdateUser(user)
+	err = s.UserStore.UpdateUserByID(user)
 	if err != nil {
 		returnError(w, fmt.Errorf("user update error: %s", err), http.StatusBadRequest)
 		return
@@ -146,10 +152,12 @@ func (s *Scim) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.UserStore.UserHooks.DeleteFunc(s.storage, user)
-	if err != nil {
-		returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
-		return
+	if s.UserStore.UserHooks.DeleteFunc != nil {
+		err = s.UserStore.UserHooks.DeleteFunc(s.storage, user)
+		if err != nil {
+			returnError(w, fmt.Errorf("could not delete all clients for user %s: %s", user.ID, err), http.StatusBadRequest)
+			return
+		}
 	}
 
 	err = s.UserStore.DeleteUserByID(user.ID)

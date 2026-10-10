@@ -13,7 +13,11 @@ func (c *Context) profilePasswordHandler(w http.ResponseWriter, r *http.Request)
 	user := r.Context().Value(CustomValue("user")).(users.User)
 	switch r.Method {
 	case http.MethodPost:
-		var userInput users.User
+		if user.OIDCID != "" || user.SAMLID != "" || user.Provisioned {
+			c.returnError(w, fmt.Errorf("password can't be changed for users that log in with single sign-on"), http.StatusForbidden)
+			return
+		}
+		var userInput ProfilePasswordRequest
 		decoder := json.NewDecoder(r.Body)
 		err := decoder.Decode(&userInput)
 		if err != nil {
@@ -22,6 +26,14 @@ func (c *Context) profilePasswordHandler(w http.ResponseWriter, r *http.Request)
 		}
 		if userInput.Password == "" {
 			c.returnError(w, fmt.Errorf("no password supplied"), http.StatusBadRequest)
+			return
+		}
+		if userInput.CurrentPassword == "" {
+			c.returnError(w, fmt.Errorf("current password is required"), http.StatusBadRequest)
+			return
+		}
+		if _, ok := c.UserStore.AuthUser(user.Login, userInput.CurrentPassword); !ok {
+			c.returnError(w, fmt.Errorf("current password is incorrect"), http.StatusBadRequest)
 			return
 		}
 		err = c.UserStore.UpdatePassword(user.ID, userInput.Password)

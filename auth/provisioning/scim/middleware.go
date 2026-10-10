@@ -1,6 +1,7 @@
 package scim
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,7 +13,7 @@ func (s *Scim) authMiddleware(next http.Handler) http.Handler {
 			writeWithStatus(w, []byte(`{"error": "token not found"}`), http.StatusUnauthorized)
 			return
 		}
-		tokenString := strings.Replace(r.Header.Get("Authorization"), "Bearer ", "", -1)
+		tokenString := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if len(tokenString) == 0 {
 			returnError(w, fmt.Errorf("empty token"), http.StatusUnauthorized)
 			return
@@ -21,7 +22,7 @@ func (s *Scim) authMiddleware(next http.Handler) http.Handler {
 			writeWithStatus(w, []byte(`{"error": "scim not active"}`), http.StatusUnauthorized)
 			return
 		}
-		if s.Token != tokenString {
+		if subtle.ConstantTimeCompare([]byte(s.Token), []byte(tokenString)) != 1 {
 			writeWithStatus(w, []byte(`{"error": "authentication failed"}`), http.StatusUnauthorized)
 			return
 		}
