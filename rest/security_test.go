@@ -406,7 +406,7 @@ func TestExternalLoginReactivatesConnections(t *testing.T) {
 			if err != nil {
 				t.Fatalf("cannot create user: %s", err)
 			}
-			if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, "john@example.com", "oidc", "oidc-1"); err != nil {
+			if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, "john@example.com", "oidc", "oidc-1", externalUserOptions{}); err != nil {
 				t.Fatalf("addOrModifyExternalUser error: %s", err)
 			}
 			updated, err := c.UserStore.GetUserByID(user.ID)

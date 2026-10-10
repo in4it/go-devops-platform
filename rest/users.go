@@ -2,7 +2,6 @@ package rest
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -237,22 +236,21 @@ func (c *Context) userHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// errNoLicense is returned when a new user can't be added because the user
-// license limit has been reached
-var errNoLicense = errors.New("no more licenses available")
+// externalUserOptions are optional checks for addOrModifyExternalUser
+type externalUserOptions struct {
+	// EmailNotVerified: the IdP says the email address (login) is not verified
+	EmailNotVerified bool
+}
 
-func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, licenseUserCount int, login, authType, externalAuthID string) (users.User, error) {
+func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, login, authType, externalAuthID string, options externalUserOptions) (users.User, error) {
 	if userStore.LoginExists(login) {
 		existingUser, err := userStore.GetUserByLogin(login)
 		if err != nil {
 			return existingUser, fmt.Errorf("couldn't find existing user in database: %s", login)
 		}
-		// don't link a login to a user that is bound to another type of external auth
-		if authType == "oidc" && existingUser.SAMLID != "" {
-			return users.User{}, fmt.Errorf("user %s is linked to a saml login, can't login with oidc", login)
-		}
-		if authType == "saml" && existingUser.OIDCID != "" {
-			return users.User{}, fmt.Errorf("user %s is linked to an oidc login, can't login with saml", login)
+		// an unverified email address can only be used to log in to a user that already logs in with oidc
+		if authType == "oidc" && options.EmailNotVerified && existingUser.OIDCID == "" {
+			return users.User{}, fmt.Errorf("email address %s is not verified by the identity provider", login)
 		}
 
 		if authType == "oidc" {
@@ -279,9 +277,6 @@ func addOrModifyExternalUser(storage storage.Iface, userStore *users.UserStore, 
 		}
 		return existingUser, nil
 	} else {
-		if userStore.UserCount() >= licenseUserCount {
-			return users.User{}, errNoLicense
-		}
 		newUser := users.User{
 			Login: login,
 			Role:  "user",

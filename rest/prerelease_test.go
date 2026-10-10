@@ -95,9 +95,10 @@ func TestSAMLCallbackCodeSingleUse(t *testing.T) {
 	}
 }
 
-// TestExternalUserLicenseLimit: SSO logins can't create users beyond the
-// license limit. Existing users can still log in.
-func TestExternalUserLicenseLimit(t *testing.T) {
+// TestExternalUserNotBlockedByLicense: new SSO users are created even when the
+// user count is at the license limit (the license count can fall back to a low
+// default when license detection fails at boot).
+func TestExternalUserNotBlockedByLicense(t *testing.T) {
 	storage := &memorystorage.MockMemoryStorage{}
 	userStore, err := users.NewUserStore(storage, 100)
 	if err != nil {
@@ -116,22 +117,17 @@ func TestExternalUserLicenseLimit(t *testing.T) {
 
 	c.SAML.Client.CreateSession(saml.SessionKey{ProviderID: samlProvider.ID, SessionID: "new"}, saml.AuthenticatedUser{ID: "1", Login: "new@example.com", ExpiresAt: time.Now().Add(time.Hour)})
 	status, loginResponse := postSAMLCallback(c, samlProvider.ID, "new")
-	if status != http.StatusOK || !loginResponse.NoLicense || loginResponse.Authenticated || loginResponse.Token != "" {
-		t.Fatalf("expected noLicense response, got %d %+v", status, loginResponse)
+	if status != http.StatusOK || !loginResponse.Authenticated || loginResponse.NoLicense {
+		t.Fatalf("expected new user to log in, got %d %+v", status, loginResponse)
 	}
-	if c.UserStore.LoginExists("new@example.com") {
-		t.Fatalf("user was created beyond the license limit")
-	}
-
-	c.SAML.Client.CreateSession(saml.SessionKey{ProviderID: samlProvider.ID, SessionID: "existing"}, saml.AuthenticatedUser{ID: "2", Login: "existing@example.com", ExpiresAt: time.Now().Add(time.Hour)})
-	status, loginResponse = postSAMLCallback(c, samlProvider.ID, "existing")
-	if status != http.StatusOK || !loginResponse.Authenticated {
-		t.Fatalf("expected existing user to log in, got %d %+v", status, loginResponse)
+	if !c.UserStore.LoginExists("new@example.com") {
+		t.Fatalf("new user was not created")
 	}
 }
 
-// TestExternalUserLinking: an SSO login is not linked to a user that is bound
-// to another type of SSO.
+// TestExternalUserLinking: users can switch between saml and oidc logins, but an
+// oidc login with an unverified email address can't take over a user that
+// doesn't log in with oidc yet.
 func TestExternalUserLinking(t *testing.T) {
 	c := newTestContext(t)
 	if _, err := c.UserStore.AddUser(users.User{Login: "saml@example.com", SAMLID: "saml-1"}); err != nil {
@@ -140,20 +136,38 @@ func TestExternalUserLinking(t *testing.T) {
 	if _, err := c.UserStore.AddUser(users.User{Login: "oidc@example.com", OIDCID: "oidc-1"}); err != nil {
 		t.Fatalf("cannot create user: %s", err)
 	}
-	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, "saml@example.com", "oidc", "oidc-2"); err == nil {
-		t.Fatalf("expected oidc login to be refused for saml user")
+	if _, err := c.UserStore.AddUser(users.User{Login: "local@example.com", Password: "localpass"}); err != nil {
+		t.Fatalf("cannot create user: %s", err)
 	}
-	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, "oidc@example.com", "saml", "saml-2"); err == nil {
-		t.Fatalf("expected saml login to be refused for oidc user")
+	unverified := externalUserOptions{EmailNotVerified: true}
+
+	// unverified email: refused for users that don't log in with oidc yet
+	for _, login := range []string{"saml@example.com", "local@example.com"} {
+		if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, login, "oidc", "oidc-x", unverified); err == nil {
+			t.Fatalf("expected oidc login with unverified email to be refused for %s", login)
+		}
+		user, _ := c.UserStore.GetUserByLogin(login)
+		if user.OIDCID != "" {
+			t.Fatalf("oidc id was linked for %s", login)
+		}
+	}
+	// unverified email: allowed for an existing oidc user and for a new user
+	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, "oidc@example.com", "oidc", "oidc-2", unverified); err != nil {
+		t.Fatalf("expected oidc login for existing oidc user: %s", err)
+	}
+	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, "new@example.com", "oidc", "oidc-3", unverified); err != nil {
+		t.Fatalf("expected new oidc user to be created: %s", err)
+	}
+	// switching between saml and oidc (verified email) works
+	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, "saml@example.com", "oidc", "oidc-4", externalUserOptions{}); err != nil {
+		t.Fatalf("expected oidc login for saml user: %s", err)
+	}
+	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, "oidc@example.com", "saml", "saml-2", externalUserOptions{}); err != nil {
+		t.Fatalf("expected saml login for oidc user: %s", err)
 	}
 	samlUser, _ := c.UserStore.GetUserByLogin("saml@example.com")
-	oidcUser, _ := c.UserStore.GetUserByLogin("oidc@example.com")
-	if samlUser.OIDCID != "" || oidcUser.SAMLID != "" {
-		t.Fatalf("external ids were overwritten: %+v %+v", samlUser, oidcUser)
-	}
-	// same type of login still works
-	if _, err := addOrModifyExternalUser(c.Storage.Client, c.UserStore, c.LicenseUserCount, "oidc@example.com", "oidc", "oidc-3"); err != nil {
-		t.Fatalf("expected oidc login for oidc user: %s", err)
+	if samlUser.OIDCID != "oidc-4" {
+		t.Fatalf("expected saml user to be linked to oidc, got %+v", samlUser)
 	}
 }
 

@@ -27,6 +27,11 @@ func fakeAccessToken(t *testing.T, exp time.Time) string {
 
 func newTestRenewal(t *testing.T, tokenEndpointStatus int) (*Renewal, *httptest.Server) {
 	t.Helper()
+	return newTestRenewalWithTokenResponse(t, tokenEndpointStatus, `{"error": "invalid_grant"}`)
+}
+
+func newTestRenewalWithTokenResponse(t *testing.T, tokenEndpointStatus int, tokenResponse string) (*Renewal, *httptest.Server) {
+	t.Helper()
 	var ts *httptest.Server
 	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -35,7 +40,7 @@ func newTestRenewal(t *testing.T, tokenEndpointStatus int) (*Renewal, *httptest.
 			w.Write(out)
 		case "/token":
 			w.WriteHeader(tokenEndpointStatus)
-			w.Write([]byte(`{"error": "invalid_grant"}`))
+			w.Write([]byte(tokenResponse))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -123,5 +128,71 @@ func TestWorkerOnlyBacksOffAfterRenewal(t *testing.T) {
 	r.renewAll()
 	if sleeps != 0 {
 		t.Fatalf("expected no backoff for entries without renewal, got %d", sleeps)
+	}
+}
+
+// TestWorkerSkipsRenewalWithoutRefreshToken: without a refresh token (e.g. the
+// offline_access scope isn't requested) the token can't be renewed, and the
+// user's connections must not be disabled for that.
+func TestWorkerSkipsRenewalWithoutRefreshToken(t *testing.T) {
+	backoffSleep = func() {}
+	r, _ := newTestRenewal(t, http.StatusBadRequest)
+	disabled := 0
+	r.userStore.UserHooks.DisableFunc = func(_ storage.Iface, user users.User) error {
+		disabled++
+		return nil
+	}
+	if _, err := r.userStore.AddUser(users.User{Login: "john@example.com", OIDCID: "oidc-1"}); err != nil {
+		t.Fatalf("add user error: %s", err)
+	}
+	err := r.oidcStore.SaveOAuth2Data(oidc.OAuthData{
+		ID:               "oidc-1",
+		OIDCProviderID:   "prov-1",
+		CreatedAt:        time.Now().Add(-2 * time.Hour),
+		LastTokenRenewal: time.Now().Add(-2 * time.Hour),
+		Token:            oidc.Token{AccessToken: fakeAccessToken(t, time.Now().Add(-time.Minute))},
+	}, "state-1")
+	if err != nil {
+		t.Fatalf("save error: %s", err)
+	}
+	for i := 0; i < RENEWAL_RETRIES+1; i++ {
+		r.renewAll()
+	}
+	if disabled != 0 {
+		t.Fatalf("connections were disabled for a user without refresh token")
+	}
+	oauth2Data, _ := r.oidcStore.GetOAuth2DataByKey("state-1")
+	if oauth2Data.RenewalRetries != 0 || oauth2Data.RenewalFailed {
+		t.Fatalf("renewal should not have been attempted: %+v", oauth2Data)
+	}
+}
+
+// TestRenewalResetsRetriesOnSuccess: earlier failures don't count anymore after
+// a successful renewal, so occasional failures over time don't disable a user.
+func TestRenewalResetsRetriesOnSuccess(t *testing.T) {
+	backoffSleep = func() {}
+	newAccessToken := fakeAccessToken(t, time.Now().Add(time.Hour))
+	r, _ := newTestRenewalWithTokenResponse(t, http.StatusOK, `{"access_token": "`+newAccessToken+`", "refresh_token": "refresh-2", "expires_in": 3600}`)
+	if _, err := r.userStore.AddUser(users.User{Login: "john@example.com", OIDCID: "oidc-1"}); err != nil {
+		t.Fatalf("add user error: %s", err)
+	}
+	err := r.oidcStore.SaveOAuth2Data(oidc.OAuthData{
+		ID:               "oidc-1",
+		OIDCProviderID:   "prov-1",
+		CreatedAt:        time.Now().Add(-2 * time.Hour),
+		LastTokenRenewal: time.Now().Add(-2 * time.Hour),
+		RenewalRetries:   RENEWAL_RETRIES - 1,
+		Token:            oidc.Token{AccessToken: fakeAccessToken(t, time.Now().Add(-time.Minute)), RefreshToken: "refresh"},
+	}, "state-1")
+	if err != nil {
+		t.Fatalf("save error: %s", err)
+	}
+	r.renewAll()
+	oauth2Data, _ := r.oidcStore.GetOAuth2DataByKey("state-1")
+	if oauth2Data.Token.AccessToken != newAccessToken {
+		t.Fatalf("token was not renewed: %+v", oauth2Data)
+	}
+	if oauth2Data.RenewalRetries != 0 {
+		t.Fatalf("expected retries to be reset after a successful renewal, got %d", oauth2Data.RenewalRetries)
 	}
 }

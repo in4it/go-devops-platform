@@ -43,6 +43,7 @@ func TestUpdateOAuth2DataWithTokenValidatesClaims(t *testing.T) {
 		discoveryIssuer string
 		modify          func(jwt.MapClaims)
 		wantErr         bool
+		wantNotVerified bool
 	}{
 		{name: "valid", discoveryIssuer: "https://idp.inv", modify: func(jwt.MapClaims) {}},
 		{name: "audience array", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["aud"] = []string{"other", "client-1"} }},
@@ -50,8 +51,12 @@ func TestUpdateOAuth2DataWithTokenValidatesClaims(t *testing.T) {
 		{name: "missing audience", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { delete(c, "aud") }, wantErr: true},
 		{name: "wrong issuer", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["iss"] = "https://evil.inv" }, wantErr: true},
 		{name: "email verified", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["email_verified"] = true }},
-		{name: "email not verified", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["email_verified"] = false }, wantErr: true},
-		{name: "email not verified (string)", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["email_verified"] = "false" }, wantErr: true},
+		// an unverified email doesn't block the login, it's recorded and checked when linking to an existing user
+		{name: "email not verified", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["email_verified"] = false }, wantNotVerified: true},
+		{name: "email not verified (string)", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["email_verified"] = "false" }, wantNotVerified: true},
+		{name: "google issuer without scheme", discoveryIssuer: "https://accounts.google.com", modify: func(c jwt.MapClaims) { c["iss"] = "accounts.google.com" }},
+		{name: "google issuer with scheme", discoveryIssuer: "https://accounts.google.com", modify: func(c jwt.MapClaims) { c["iss"] = "https://accounts.google.com" }},
+		{name: "issuer without scheme for other idp", discoveryIssuer: "https://idp.inv", modify: func(c jwt.MapClaims) { c["iss"] = "idp.inv" }, wantErr: true},
 		{name: "tenant issuer", discoveryIssuer: "https://login.inv/{tenantid}/v2.0", modify: func(c jwt.MapClaims) {
 			c["iss"] = "https://login.inv/tenant-1/v2.0"
 			c["tid"] = "tenant-1"
@@ -89,6 +94,9 @@ func TestUpdateOAuth2DataWithTokenValidatesClaims(t *testing.T) {
 			}
 			if oauthData.UserInfo.Email != "john@example.inv" || oauthData.Subject != "john" {
 				t.Fatalf("unexpected oauth data: %+v", oauthData)
+			}
+			if oauthData.UserInfo.EmailNotVerified != tc.wantNotVerified {
+				t.Fatalf("EmailNotVerified = %v, want %v", oauthData.UserInfo.EmailNotVerified, tc.wantNotVerified)
 			}
 		})
 	}

@@ -121,3 +121,28 @@ func TestWriteFileReadOnlyDirFallback(t *testing.T) {
 		t.Fatalf("unexpected contents: %s", data)
 	}
 }
+
+// TestReadDirSkipsTempFiles: a temporary file left behind by an interrupted
+// WriteFile must not show up in directory listings (callers parse every file).
+func TestReadDirSkipsTempFiles(t *testing.T) {
+	l, err := NewWithPath(t.TempDir())
+	if err != nil {
+		t.Fatalf("new storage: %s", err)
+	}
+	if err := l.EnsurePath("clients"); err != nil {
+		t.Fatalf("ensure path: %s", err)
+	}
+	if err := l.WriteFile("clients/a.json", []byte(`{}`)); err != nil {
+		t.Fatalf("write: %s", err)
+	}
+	if err := os.WriteFile(filepath.Join(l.path, "clients", ".a.json.tmp-123"), []byte(`{"trunc`), 0600); err != nil {
+		t.Fatalf("write temp file: %s", err)
+	}
+	names, err := l.ReadDir("clients")
+	if err != nil {
+		t.Fatalf("read dir: %s", err)
+	}
+	if len(names) != 1 || names[0] != "a.json" {
+		t.Fatalf("expected only a.json, got %v", names)
+	}
+}
